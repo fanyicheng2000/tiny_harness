@@ -1,0 +1,26 @@
+{
+  "name": "tiny-harness",
+  "version": "1.0.0",
+  "description": "Node.js 实现的极简 Agent Harness",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "tiny-harness": "src/index.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "start": "node src/index.js --provider mock --script read-file",
+    "chat": "node src/index.js",
+    "demo:1": "node examples/01-simple-loop.js",
+    "demo:2": "node examples/02-with-tools.js",
+    "demo:3": "node examples/03-with-plan-mode.js",
+    "demo:4": "node examples/04-loop-detection.js",
+    "demo:5": "node examples/05-approval.js",
+    "demo:6": "node examples/06-real-task.js",
+    "server": "node demos/server.js"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

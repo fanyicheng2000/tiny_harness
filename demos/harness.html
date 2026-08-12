@@ -1,0 +1,2987 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tiny-harness · Agent Harness 演示</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
+<style>
+/* ============================================================
+   tiny-harness · harness.html
+   亮色精致 (Linear / Vercel 风) 重做版
+   设计原则：单一 indigo 强调色 / 柔和圆角 / 染色阴影 / 高留白
+   ============================================================ */
+
+:root {
+  /* —— 表面与描边（zinc 中性灰，去掉蓝调）—— */
+  --bg: #fafafa;
+  --bg-panel: #ffffff;
+  --bg-card: #f4f4f5;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+
+  /* —— 文字层级 —— */
+  --text: #18181b;
+  --text-dim: #52525b;
+  --text-mute: #71717a;
+
+  /* —— 单一强调色：indigo（Linear 主色调）—— */
+  --accent: #4f46e5;
+  --accent-2: #6366f1;
+  --accent-soft: #eef2ff;
+  --accent-softer: #f5f3ff;
+  --accent-ring: rgba(79, 70, 229, 0.16);
+
+  /* —— 语义色（保留，走变量）—— */
+  --green: #16a34a;
+  --green-soft: #f0fdf4;
+  --yellow: #ca8a04;
+  --yellow-soft: #fefce8;
+  --red: #dc2626;
+  --red-soft: #fef2f2;
+  --orange: #ea580c;
+  --orange-soft: #fff7ed;
+  --purple: #7c3aed;
+  --purple-soft: #f5f3ff;
+
+  /* —— 圆角刻度（Shape Consistency Lock）—— */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* —— 染色阴影（indigo 极淡染色，非纯黑）—— */
+  --shadow-xs: 0 1px 2px rgba(24, 24, 27, 0.04);
+  --shadow-sm: 0 1px 3px rgba(24, 24, 27, 0.06), 0 1px 2px rgba(24, 24, 27, 0.04);
+  --shadow-md: 0 4px 12px rgba(24, 24, 27, 0.08), 0 2px 4px rgba(24, 24, 27, 0.04);
+  --shadow-lg: 0 12px 32px rgba(24, 24, 27, 0.12), 0 4px 8px rgba(24, 24, 27, 0.06);
+  --shadow-accent: 0 4px 14px rgba(79, 70, 229, 0.25);
+
+  /* —— 字体 —— */
+  --code: 'JetBrains Mono', 'SF Mono', Consolas, Monaco, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ===== Layout 骨架 ===== */
+.app {
+  display: grid;
+  grid-template-rows: 60px 40px 1fr;
+  height: 100vh;
+}
+
+/* ===== Header ===== */
+.header {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  box-shadow: var(--shadow-xs);
+  position: relative;
+  z-index: 10;
+}
+.header h1 {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.header h1 .ver {
+  color: var(--text-mute);
+  font-weight: 400;
+  margin-left: 10px;
+  font-size: 12px;
+}
+.header nav { display: flex; gap: 8px; margin-left: auto; }
+.header nav a, .header nav button {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+}
+.header nav a:hover, .header nav button:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ===== Progress Bar ===== */
+.progress-bar {
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+  font-size: 12px;
+  font-family: var(--code);
+  overflow: hidden;
+}
+.progress-text {
+  color: var(--text-dim);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.progress-text .round { color: var(--accent); font-weight: 600; }
+.progress-text .phase-thinking { color: var(--purple); }
+.progress-text .phase-acting { color: var(--accent); }
+.progress-text .phase-observing { color: var(--yellow); }
+.progress-text .phase-done { color: var(--green); }
+.progress-text .phase-idle { color: var(--text-mute); }
+.progress-text .elapsed { color: var(--text); }
+.progress-text .cost { color: var(--green); }
+.progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-card);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  position: relative;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: var(--radius-pill);
+  transition: width 0.3s ease;
+  width: 0%;
+}
+.progress-fill.indeterminate {
+  width: 30%;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent-2), transparent);
+  background-size: 200% 100%;
+  animation: progress-slide 1.5s linear infinite;
+}
+@keyframes progress-slide {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.progress-pct {
+  flex: 0 0 auto;
+  color: var(--text-mute);
+  font-size: 11px;
+  min-width: 36px;
+  text-align: right;
+}
+
+/* ===== Main 三栏卡片化 ===== */
+.main {
+  display: grid;
+  grid-template-columns: 320px 1fr 1fr;
+  gap: 12px;
+  background: var(--bg);
+  overflow: hidden;
+  min-height: 0;
+  padding: 12px;
+}
+
+.panel {
+  background: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+.panel-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-panel);
+  flex: 0 0 auto;
+}
+.panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.panel-badge {
+  font-size: 11px;
+  color: var(--text-mute);
+  background: var(--bg-card);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+}
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  min-height: 0;
+}
+
+/* ===== Control Panel 通用 ===== */
+.control-group { margin-bottom: 20px; }
+.control-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-mute);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+/* script-list (legacy class, keep for compatibility) */
+.script-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.script-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+}
+.script-item:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-xs);
+}
+.script-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.script-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.script-item-desc {
+  font-size: 11px;
+  color: var(--text-mute);
+  line-height: 1.5;
+}
+.script-item-tag {
+  display: inline-block;
+  font-size: 10px;
+  background: var(--bg-panel);
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  margin-top: 6px;
+  font-weight: 500;
+}
+.script-item-key {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 10px;
+  color: var(--text-mute);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-family: var(--code);
+}
+
+/* ===== Buttons ===== */
+.btn {
+  width: 100%;
+  background: var(--accent);
+  border: none;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 11px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: var(--shadow-accent);
+  font-family: var(--sans);
+}
+.btn:hover {
+  background: var(--accent-2);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(79, 70, 229, 0.32);
+}
+.btn:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+.btn:disabled {
+  background: var(--bg-card);
+  color: var(--text-mute);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+.btn-stop {
+  background: var(--red);
+  margin-top: 8px;
+  display: none;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.25);
+}
+.btn-stop:hover {
+  background: #b91c1c;
+  box-shadow: 0 6px 18px rgba(220, 38, 38, 0.32);
+}
+.btn-stop.visible { display: block; }
+
+/* ===== Options ===== */
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.option-row input[type=checkbox] {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+/* ===== Stats ===== */
+.stats {
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+}
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+}
+.stat-label { color: var(--text-mute); }
+.stat-value { color: var(--text); font-family: var(--code); font-weight: 500; }
+
+/* ===== Console ===== */
+.console-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex: 0 0 auto;
+}
+.console-search {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-family: var(--code);
+  outline: none;
+  transition: all 0.15s ease;
+}
+.console-search:focus {
+  border-color: var(--accent);
+  background: var(--bg-panel);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.console-search::placeholder { color: var(--text-mute); }
+
+.console {
+  font-family: var(--code);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.console-line {
+  padding: 2px 0;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+.console-line.log-info { color: var(--text); }
+.console-line.log-warn { color: var(--yellow); }
+.console-line.log-error { color: var(--red); }
+.console-line.event-thinking { color: var(--purple); font-weight: 600; }
+.console-line.event-message { color: var(--green); padding: 8px 0; }
+.console-line.event-tool_call { color: var(--accent); }
+.console-line.event-tool_result { color: var(--text-dim); }
+.console-line.event-tool_result.error { color: var(--red); }
+.console-line.event-start { color: var(--accent); font-weight: 600; padding: 8px 0; border-top: 1px solid var(--border); }
+.console-line.event-done { color: var(--green); font-weight: 600; padding: 8px 0; border-top: 1px solid var(--border); }
+.console-line.event-error { color: var(--red); padding: 8px 0; }
+.console-line .icon { display: inline-block; width: 16px; }
+.console-line .ts {
+  color: var(--text-mute);
+  font-size: 10px;
+  margin-right: 6px;
+}
+.console-line.hidden-by-search { display: none; }
+
+/* ===== Tool Cards ===== */
+.tool-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  margin: 10px 0;
+  overflow: hidden;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.tool-card:hover { box-shadow: var(--shadow-sm); }
+.tool-card.error {
+  border-left-color: var(--red);
+  background: var(--red-soft);
+}
+.tool-card.pending {
+  border-left-color: var(--yellow);
+  animation: pulse-border 1.5s ease-in-out infinite;
+}
+@keyframes pulse-border {
+  0%, 100% { border-left-color: var(--yellow); }
+  50% { border-left-color: var(--orange); }
+}
+.tool-card-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  cursor: pointer;
+  gap: 10px;
+  user-select: none;
+}
+.tool-card-header:hover { background: var(--accent-soft); }
+.tool-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  flex: 0 0 auto;
+}
+.tool-icon.bash { background: var(--red-soft); color: var(--red); }
+.tool-icon.read_file { background: var(--green-soft); color: var(--green); }
+.tool-icon.write_file { background: var(--accent-soft); color: var(--accent); }
+.tool-icon.edit_file { background: var(--orange-soft); color: var(--orange); }
+.tool-icon.unknown { background: var(--bg-card); color: var(--text-dim); }
+.tool-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 0 0 auto;
+}
+.tool-card-summary {
+  font-size: 11px;
+  color: var(--text-dim);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--code);
+}
+.tool-card-status {
+  font-size: 11px;
+  color: var(--text-mute);
+  flex: 0 0 auto;
+  font-weight: 500;
+}
+.tool-card-status.ok { color: var(--green); }
+.tool-card-status.err { color: var(--red); }
+.tool-card-status.pending { color: var(--yellow); }
+.tool-card-chevron {
+  color: var(--text-mute);
+  font-size: 10px;
+  flex: 0 0 auto;
+  transition: transform 0.15s ease;
+}
+.tool-card.expanded .tool-card-chevron { transform: rotate(90deg); }
+.tool-card-body {
+  display: none;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.tool-card.expanded .tool-card-body { display: block; }
+.tool-card-section { margin-bottom: 12px; }
+.tool-card-section:last-child { margin-bottom: 0; }
+.tool-card-section-title {
+  font-size: 10px;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.tool-card-json {
+  font-family: var(--code);
+  font-size: 11px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.tool-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.tool-card-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--sans);
+  transition: all 0.15s ease;
+}
+.tool-card-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ===== Trace Tree ===== */
+.trace-empty {
+  color: var(--text-mute);
+  text-align: center;
+  padding: 48px 24px;
+  font-size: 12px;
+}
+.trace-toolbar {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex: 0 0 auto;
+}
+.trace-tool-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-family: var(--sans);
+  transition: all 0.15s ease;
+  font-weight: 500;
+}
+.trace-tool-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.trace-tool-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.trace-tree {
+  font-family: var(--code);
+  font-size: 12px;
+  padding: 6px;
+}
+.trace-node-wrap { position: relative; }
+.trace-node {
+  display: flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  cursor: default;
+  position: relative;
+  gap: 8px;
+}
+.trace-node.collapsible { cursor: pointer; }
+.trace-node.collapsible:hover { background: var(--bg-card); }
+.trace-node.root { font-weight: 600; color: var(--accent); }
+.trace-node.turn { color: var(--accent); }
+.trace-node.llm { color: var(--purple); }
+.trace-node.tool { color: var(--yellow); }
+.trace-node.slowest { background: var(--red-soft); box-shadow: inset 2px 0 0 var(--red); }
+.trace-chevron {
+  width: 12px;
+  font-size: 9px;
+  color: var(--text-mute);
+  flex: 0 0 auto;
+  transition: transform 0.15s ease;
+}
+.trace-node.collapsed .trace-chevron { transform: rotate(-90deg); }
+.trace-name { flex: 0 0 auto; }
+.trace-bar {
+  flex: 1;
+  height: 5px;
+  background: var(--bg-card);
+  border-radius: var(--radius-pill);
+  position: relative;
+  overflow: hidden;
+  min-width: 30px;
+}
+.trace-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+}
+.trace-node.llm .trace-bar-fill { background: var(--purple); }
+.trace-node.tool .trace-bar-fill { background: var(--yellow); }
+.trace-node.turn .trace-bar-fill { background: var(--accent); }
+.trace-node.root .trace-bar-fill { background: var(--accent); }
+.trace-duration {
+  flex: 0 0 auto;
+  color: var(--text-mute);
+  font-size: 11px;
+}
+.trace-children {
+  margin-left: 18px;
+  border-left: 1px dashed var(--border);
+  padding-left: 10px;
+}
+.trace-node-wrap.collapsed > .trace-children { display: none; }
+.trace-attrs {
+  margin: 5px 0 8px 18px;
+  font-size: 11px;
+}
+.trace-attrs-table {
+  border-collapse: collapse;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.trace-attrs-table td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--code);
+  vertical-align: top;
+}
+.trace-attrs-table tr:last-child td { border-bottom: none; }
+.trace-attrs-table td:first-child {
+  color: var(--text-mute);
+  white-space: nowrap;
+  background: var(--bg-panel);
+}
+.trace-attrs-table td:last-child {
+  color: var(--text);
+  word-break: break-all;
+  max-width: 300px;
+}
+
+/* ===== Right Panel Tabs ===== */
+.right-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex: 0 0 auto;
+}
+.right-tab {
+  flex: 1;
+  padding: 11px 16px;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-align: center;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  font-family: var(--sans);
+  font-weight: 600;
+}
+.right-tab:hover { color: var(--text); background: var(--bg-card); }
+.right-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--accent-soft);
+}
+.right-tab-badge {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 10px;
+  background: var(--bg-card);
+  color: var(--text-mute);
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  font-weight: 500;
+}
+.right-tab.active .right-tab-badge { background: var(--accent); color: white; }
+.right-panel-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.right-tab-pane {
+  flex: 1;
+  overflow: hidden;
+  display: none;
+  min-height: 0;
+  flex-direction: column;
+}
+.right-tab-pane.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Cost Panel ===== */
+.cost-panel {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+  flex: 0 0 auto;
+}
+.cost-panel-title {
+  font-size: 10px;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+}
+.cost-snapshot-date {
+  color: var(--text-mute);
+  font-family: var(--code);
+  text-transform: none;
+  font-weight: 400;
+}
+.cost-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.cost-cell {
+  background: var(--bg-panel);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+}
+.cost-cell-label {
+  font-size: 10px;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.cost-cell-value {
+  font-family: var(--code);
+  font-size: 14px;
+  color: var(--text);
+  margin-top: 3px;
+  font-weight: 500;
+}
+.cost-cell-value.usd { color: var(--green); }
+.cost-cell-value.cny { color: var(--accent); }
+.cost-cell-value.flash {
+  animation: cost-flash 0.6s ease;
+}
+@keyframes cost-flash {
+  0% { background: var(--accent-soft); transform: scale(1.04); }
+  100% { background: transparent; transform: scale(1); }
+}
+
+/* ===== Session JSONL Viewer ===== */
+.session-empty {
+  color: var(--text-mute);
+  text-align: center;
+  padding: 48px 24px;
+  font-size: 12px;
+}
+
+/* ===== Context Flow Tab ===== */
+.ctx-turn {
+  padding: 8px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  color: var(--text-mute);
+  transition: background 0.15s ease;
+}
+.ctx-turn:hover { background: var(--accent-softer); }
+.ctx-turn.active {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+.ctx-turn-small { font-size: 10px; color: var(--text-mute); margin-top: 2px; }
+.ctx-turn.compressed { border-left-color: var(--red); }
+.ctx-msg {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  overflow: hidden;
+  background: var(--bg-panel);
+}
+.ctx-msg-head {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+}
+.ctx-msg-role-system { color: var(--purple); }
+.ctx-msg-role-user { color: var(--accent); }
+.ctx-msg-role-assistant { color: var(--green); }
+.ctx-msg-role-tool { color: var(--orange); }
+.ctx-msg-meta { font-size: 10px; color: var(--text-mute); font-weight: 400; }
+.ctx-msg-body {
+  padding: 10px 12px;
+  font-size: 11px;
+  font-family: var(--code);
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text);
+  max-height: 240px;
+  overflow: auto;
+}
+.ctx-toolcalls {
+  padding: 8px 12px;
+  font-size: 10px;
+  color: var(--orange);
+  border-top: 1px dashed var(--border);
+  background: var(--orange-soft);
+}
+.ctx-summary {
+  padding: 10px 12px;
+  font-size: 11px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+}
+.ctx-compressed-banner {
+  padding: 10px 12px;
+  font-size: 11px;
+  background: var(--red-soft);
+  color: var(--red);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  border-left: 3px solid var(--red);
+}
+.ctx-tools-list {
+  padding: 8px 12px;
+  font-size: 10px;
+  color: var(--text-mute);
+  margin-bottom: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+
+/* Session lines */
+.session-line {
+  display: flex;
+  font-family: var(--code);
+  font-size: 11px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+}
+.session-lineno {
+  flex: 0 0 36px;
+  color: var(--text-mute);
+  text-align: right;
+  padding-right: 10px;
+  user-select: none;
+}
+.session-type-tag {
+  flex: 0 0 70px;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  text-align: center;
+  text-transform: uppercase;
+  margin-right: 10px;
+  margin-top: 1px;
+  font-family: var(--sans);
+  font-weight: 600;
+}
+.session-type-tag.meta { background: var(--purple-soft); color: var(--purple); }
+.session-type-tag.user { background: var(--accent-soft); color: var(--accent); }
+.session-type-tag.assistant { background: var(--green-soft); color: var(--green); }
+.session-type-tag.tool_call { background: var(--orange-soft); color: var(--orange); }
+.session-type-tag.tool_result { background: var(--yellow-soft); color: var(--yellow); }
+.session-type-tag.unknown { background: var(--bg-card); color: var(--text-mute); }
+.session-content {
+  flex: 1;
+  word-break: break-all;
+  white-space: pre-wrap;
+  color: var(--text);
+}
+.session-line.meta .session-content { color: var(--purple); }
+.session-line.user .session-content { color: var(--accent); }
+.session-line.assistant .session-content { color: var(--green); }
+.session-line.tool_call .session-content { color: var(--orange); }
+.session-line.tool_result .session-content { color: var(--yellow); }
+.session-line.new-line {
+  animation: line-flash 1s ease;
+}
+@keyframes line-flash {
+  0% { background: var(--accent-soft); }
+  100% { background: transparent; }
+}
+
+/* ===== Files Panel ===== */
+.file-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 12px;
+  flex-wrap: wrap;
+}
+.file-tab {
+  font-size: 11px;
+  padding: 5px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-dim);
+  font-family: var(--code);
+  transition: all 0.15s ease;
+}
+.file-tab:hover { border-color: var(--accent); color: var(--accent); }
+.file-tab.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.file-content {
+  font-family: var(--code);
+  font-size: 12px;
+  white-space: pre-wrap;
+  padding: 12px 16px;
+  color: var(--text);
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  margin: 0 16px 16px;
+  overflow-x: auto;
+  flex: 1;
+}
+.files-empty {
+  color: var(--text-mute);
+  text-align: center;
+  padding: 48px 24px;
+  font-size: 12px;
+}
+
+/* ===== Modal (Source Viewer) ===== */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(24, 24, 27, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+.modal-overlay.visible { display: flex; }
+.modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 900px;
+  height: 80%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+.modal-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-panel);
+}
+.modal-title {
+  font-size: 13px;
+  color: var(--text);
+  font-family: var(--code);
+  font-weight: 600;
+}
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-mute);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+.modal-close:hover { color: var(--red); background: var(--red-soft); }
+.modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+  background: var(--bg);
+}
+.source-code {
+  font-family: var(--code);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre;
+  padding: 14px 18px;
+  color: var(--text);
+  counter-reset: line;
+}
+.source-code .line {
+  display: block;
+  counter-increment: line;
+  position: relative;
+  padding-left: 48px;
+}
+.source-code .line::before {
+  content: counter(line);
+  position: absolute;
+  left: 0;
+  width: 36px;
+  text-align: right;
+  color: var(--text-mute);
+  font-size: 10px;
+  user-select: none;
+}
+.source-code .line.comment { color: var(--text-mute); font-style: italic; }
+.source-code .line.keyword { color: var(--purple); }
+.source-code .line.string { color: var(--green); }
+
+/* ===== Help Overlay ===== */
+.help-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(24, 24, 27, 0.4);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 101;
+  padding: 24px;
+}
+.help-overlay.visible { display: flex; }
+.help-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+.help-card h2 {
+  font-size: 15px;
+  color: var(--text);
+  margin-bottom: 16px;
+  font-weight: 700;
+}
+.help-card kbd {
+  display: inline-block;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  font-family: var(--code);
+  font-size: 11px;
+  color: var(--accent);
+  min-width: 24px;
+  text-align: center;
+  font-weight: 600;
+  box-shadow: 0 1px 0 var(--border-strong);
+}
+.help-card .row {
+  display: flex;
+  align-items: center;
+  padding: 7px 0;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.help-card .row .keys {
+  flex: 0 0 100px;
+  display: flex;
+  gap: 4px;
+}
+.help-card .row .desc { flex: 1; }
+.help-card .close-hint {
+  margin-top: 16px;
+  font-size: 11px;
+  color: var(--text-mute);
+  text-align: center;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: var(--radius-pill); }
+::-webkit-scrollbar-thumb:hover { background: var(--text-mute); }
+
+/* ===== Responsive ===== */
+@media (max-width: 1200px) {
+  .main {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .panel.control-panel {
+    grid-column: 1 / -1;
+    max-height: 280px;
+  }
+  .panel.control-panel .panel-body { overflow-y: auto; }
+}
+@media (max-width: 768px) {
+  html, body { overflow: auto; height: auto; }
+  .app { height: auto; min-height: 100vh; grid-template-rows: 60px 40px auto; }
+  .main {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+  }
+  .panel { min-height: 320px; }
+  .panel.control-panel { max-height: none; }
+  .header { padding: 0 16px; gap: 8px; }
+  .header h1 { font-size: 15px; }
+  .header h1 .ver { display: none; }
+  .header nav { gap: 8px; }
+  .header nav a, .header nav button { font-size: 12px; padding: 6px 8px; }
+}
+
+/* ===== 真调模式折叠区 ===== */
+.realcall-fold {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0;
+}
+.realcall-fold > summary {
+  cursor: pointer;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  list-style: none;
+  user-select: none;
+}
+.realcall-fold > summary::-webkit-details-marker { display: none; }
+.realcall-fold > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 8px;
+  transition: transform 0.15s ease;
+  color: var(--text-mute);
+}
+.realcall-fold[open] > summary::before { transform: rotate(90deg); }
+.realcall-fold[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+.realcall-body {
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.realcall-select {
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.realcall-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.realcall-prompt {
+  background: var(--bg-panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: var(--code);
+  resize: vertical;
+  min-height: 60px;
+  width: 100%;
+  transition: all 0.15s ease;
+}
+.realcall-prompt:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-ring);
+}
+.btn-realcall {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 4px;
+  box-shadow: var(--shadow-accent);
+  transition: all 0.15s ease;
+  font-family: var(--sans);
+}
+.btn-realcall:hover { background: var(--accent-2); transform: translateY(-1px); }
+.btn-realcall:active { transform: translateY(0); }
+.btn-realcall:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+.realcall-hint {
+  font-size: 11px;
+  color: var(--text-mute);
+  line-height: 1.5;
+  margin-top: 6px;
+}
+
+/* ===== Left Panel: 双 tab + 示例卡片网格 + 预设 prompt ===== */
+.left-panel {
+  padding: 0;
+}
+.mode-tabs {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex: 0 0 auto;
+}
+.mode-tab {
+  flex: 1;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  font-family: var(--sans);
+}
+.mode-tab:hover {
+  color: var(--text);
+  background: var(--bg-card);
+}
+.mode-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--accent-soft);
+}
+.mode-status {
+  flex: 0 0 auto;
+  align-self: center;
+  padding: 0 14px;
+  font-size: 11px;
+  color: var(--text-mute);
+  background: var(--bg-card);
+  border-radius: var(--radius-pill);
+  margin-right: 10px;
+  height: 22px;
+  line-height: 22px;
+  font-weight: 500;
+}
+.mode-pane {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  min-height: 0;
+}
+.mode-pane.active {
+  display: flex;
+}
+.pane-header {
+  margin-bottom: 12px;
+  flex: 0 0 auto;
+}
+.pane-header h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 3px;
+  letter-spacing: -0.01em;
+}
+.pane-subtitle {
+  font-size: 11px;
+  color: var(--text-mute);
+  line-height: 1.5;
+}
+.script-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  max-height: 380px;
+  overflow-y: auto;
+  flex: 0 0 auto;
+  padding: 2px;
+}
+.script-card-skeleton {
+  grid-column: 1 / -1;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-mute);
+  font-size: 12px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+}
+.script-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.script-card:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-xs);
+  transform: translateY(-1px);
+}
+.script-card.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-xs);
+}
+.script-card-header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.script-section {
+  font-size: 11px;
+  color: var(--text-mute);
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.script-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+.script-hint {
+  font-size: 11px;
+  color: var(--text-mute);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+.common-options {
+  margin-top: 12px;
+}
+.preset-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+}
+.preset-btn {
+  padding: 9px 6px;
+  font-size: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--sans);
+  font-weight: 500;
+}
+.preset-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.realcall-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.realcall-field > label {
+  font-size: 11px;
+  color: var(--text-mute);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+@media (max-width: 1200px) {
+  .script-grid { max-height: 240px; }
+}
+
+/* ===== Reduced Motion 兜底（WCAG）===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <h1>tiny-harness <span class="ver">Node.js · Agent Harness</span></h1>
+    <nav>
+      <button id="btn-help" title="快捷键帮助">⌨ 快捷键</button>
+    </nav>
+  </header>
+
+  <!-- ===== Progress Bar ===== -->
+  <div class="progress-bar">
+    <div class="progress-text" id="progress-text">
+      <span class="round">Round 0</span> ·
+      <span class="phase-idle" id="progress-phase">idle</span> ·
+      <span class="elapsed" id="progress-elapsed">0s</span> ·
+      <span class="cost" id="progress-cost">$0.0000</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="progress-pct" id="progress-pct"></div>
+  </div>
+
+  <div class="main">
+    <!-- ===== Left Panel (Mock + Realcall 双 tab) ===== -->
+    <aside class="left-panel panel control-panel">
+      <!-- 顶部双 tab -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="mock">📖 Mock 示例（12 个）</button>
+        <button class="mode-tab" data-mode="realcall">⚡ 真调 LLM</button>
+        <span class="mode-status" id="status-badge">就绪</span>
+      </div>
+
+      <!-- Mock 模式面板 -->
+      <div class="mode-pane mode-pane-mock active" id="pane-mock">
+        <div class="pane-header">
+          <h3>12 个 Mock 示例</h3>
+          <div class="pane-subtitle">离线运行，无需 API key，零成本</div>
+        </div>
+        <!-- 示例卡片网格（启动时从 /api/scripts 拉数据动态生成） -->
+        <div class="script-grid" id="script-grid">
+          <div class="script-card-skeleton">加载中...</div>
+        </div>
+        <!-- 公共选项 -->
+        <div class="common-options">
+          <label class="option-row">
+            <input type="checkbox" id="opt-plan"> 开启 Plan Mode（仅部分示例适用）
+          </label>
+        </div>
+        <!-- 启动/停止按钮 -->
+        <div class="control-group">
+          <button class="btn" id="btn-run">▶ 启动</button>
+          <button class="btn btn-stop" id="btn-stop">■ 停止（S）</button>
+        </div>
+
+        <!-- 本次运行统计（保留以兼容现有 JS） -->
+        <div class="control-group">
+          <label class="control-label">本次运行统计</label>
+          <div class="stats">
+            <div class="stat-row"><span class="stat-label">耗时</span><span class="stat-value" id="stat-time">-</span></div>
+            <div class="stat-row"><span class="stat-label">Turn 数</span><span class="stat-value" id="stat-turns">-</span></div>
+            <div class="stat-row"><span class="stat-label">工具调用</span><span class="stat-value" id="stat-tools">-</span></div>
+            <div class="stat-row"><span class="stat-label">花费</span><span class="stat-value" id="stat-cost">-</span></div>
+          </div>
+        </div>
+
+        <!-- 关于 -->
+        <div class="control-group">
+          <label class="control-label">关于</label>
+          <div style="font-size: 11px; color: var(--text-mute); line-height: 1.6;">
+            Mock Provider 离线运行，无需 API key。<br><br>
+            <a href="../docs/00-overview.md" target="_blank" style="color: var(--accent);">查看文档 →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 真调模式面板 -->
+      <div class="mode-pane mode-pane-realcall" id="pane-realcall">
+        <div class="pane-header">
+          <h3>真调 LLM</h3>
+          <div class="pane-subtitle">按 token 计费，支持 OpenAI / Claude 协议</div>
+        </div>
+        <!-- Provider 选择 -->
+        <div class="realcall-field">
+          <label>Provider</label>
+          <select id="realcall-provider" class="realcall-select">
+            <option value="openai">OpenAI 兼容协议</option>
+            <option value="claude">Claude 兼容协议</option>
+          </select>
+        </div>
+        <!-- 项目目录 -->
+        <div class="realcall-field">
+          <label class="option-row">
+            <input type="checkbox" id="opt-realcall-project" checked> 使用 test-harness 项目目录（calc-app）
+          </label>
+        </div>
+        <!-- 6 个预设 prompt 按钮 -->
+        <div class="realcall-field">
+          <label>快捷预设</label>
+          <div class="preset-grid">
+            <button class="preset-btn" data-preset="read">📖 读文件</button>
+            <button class="preset-btn" data-preset="write">✏️ 写文件</button>
+            <button class="preset-btn" data-preset="edit">🔧 改文件</button>
+            <button class="preset-btn" data-preset="bash">⌨️ 跑命令</button>
+            <button class="preset-btn" data-preset="plan">📋 Plan Mode</button>
+            <button class="preset-btn" data-preset="multi">💬 多轮对话</button>
+          </div>
+        </div>
+        <!-- 自定义 prompt -->
+        <div class="realcall-field">
+          <label>任务 prompt</label>
+          <textarea id="realcall-prompt" class="realcall-prompt" rows="4" placeholder="输入任务..."></textarea>
+        </div>
+        <!-- 选项 -->
+        <div class="realcall-field">
+          <label class="option-row">
+            <input type="checkbox" id="opt-realcall-plan"> 开启 Plan Mode
+          </label>
+        </div>
+        <!-- 启动 -->
+        <button class="btn btn-realcall" id="btn-realcall-run">⚡ 真调启动</button>
+        <div class="realcall-hint">⚠️ 按 token 计费，单次约 ¥0.001-0.1。</div>
+      </div>
+    </aside>
+
+    <!-- ===== Console Panel ===== -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">实时输出</span>
+        <span class="panel-badge" id="console-badge">等待启动</span>
+      </div>
+      <div class="console-toolbar">
+        <input type="text" class="console-search" id="console-search" placeholder="/ 搜索过滤 (按 / 聚焦)..." />
+      </div>
+      <div class="panel-body">
+        <div class="console" id="console">
+          <div class="console-line" style="color: var(--text-mute); text-align: center; padding: 48px 24px; font-family: var(--sans); font-size: 12px; line-height: 1.7;">
+            点击左侧 <strong style="color: var(--accent);">启动</strong> 开始<br>
+            运行日志与工具调用卡片会实时显示在此处
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Right Panel (Cost + Tabs) ===== -->
+    <div class="panel">
+      <!-- Cost panel (固定顶部) -->
+      <div class="cost-panel">
+        <div class="cost-panel-title">
+          <span>💰 CostTracker 实时面板</span>
+          <span class="cost-snapshot-date" id="cost-snapshot-date">未运行</span>
+        </div>
+        <div class="cost-grid">
+          <div class="cost-cell">
+            <div class="cost-cell-label">输入 Token</div>
+            <div class="cost-cell-value" id="cost-input-tokens">0</div>
+          </div>
+          <div class="cost-cell">
+            <div class="cost-cell-label">输出 Token</div>
+            <div class="cost-cell-value" id="cost-output-tokens">0</div>
+          </div>
+          <div class="cost-cell">
+            <div class="cost-cell-label">累计 USD</div>
+            <div class="cost-cell-value usd" id="cost-usd">$0.000000</div>
+          </div>
+          <div class="cost-cell">
+            <div class="cost-cell-label">累计 CNY</div>
+            <div class="cost-cell-value cny" id="cost-cny">¥0.000000</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="right-tabs">
+        <button class="right-tab active" data-tab="trace">Trace 链路<span class="right-tab-badge" id="trace-tab-badge">0</span></button>
+        <button class="right-tab" data-tab="files">文件<span class="right-tab-badge" id="files-tab-badge">0</span></button>
+        <button class="right-tab" data-tab="session">Session JSONL<span class="right-tab-badge" id="session-tab-badge">0</span></button>
+        <button class="right-tab" data-tab="context">上下文流转<span class="right-tab-badge" id="context-tab-badge">0</span></button>
+      </div>
+
+      <div class="right-panel-content">
+        <!-- Trace Tab -->
+        <div class="right-tab-pane active" id="pane-trace">
+          <div class="trace-toolbar">
+            <button class="trace-tool-btn" id="trace-expand-all">展开全部</button>
+            <button class="trace-tool-btn" id="trace-collapse-all">收起全部</button>
+            <button class="trace-tool-btn" id="trace-sort">按耗时排序</button>
+            <button class="trace-tool-btn" id="trace-highlight-slowest">高亮最慢</button>
+          </div>
+          <div id="trace-panel" style="padding: 8px; flex: 1; overflow: auto;">
+            <div class="trace-empty">运行结束后，此处显示 Span 树</div>
+          </div>
+        </div>
+
+        <!-- Files Tab -->
+        <div class="right-tab-pane" id="pane-files">
+          <div class="files-empty" id="files-empty">无文件（Plan Mode 会生成 PLAN.md / TODO.md）</div>
+          <div class="file-tabs" id="file-tabs" style="display: none;"></div>
+          <div class="file-content" id="file-content" style="display: none;"></div>
+        </div>
+
+        <!-- Session JSONL Tab -->
+        <div class="right-tab-pane" id="pane-session">
+          <div class="trace-toolbar">
+            <span style="font-size: 11px; color: var(--text-mute); flex: 1;" id="session-meta">未运行</span>
+            <button class="trace-tool-btn" id="session-refresh">手动刷新</button>
+          </div>
+          <div id="session-list" style="padding: 4px 8px; flex: 1; overflow: auto;">
+            <div class="session-empty">运行后此处显示 session JSONL<br>每行按类型着色（meta/user/assistant/tool_call/tool_result）</div>
+          </div>
+        </div>
+
+        <!-- Context Flow Tab（上下文流转）-->
+        <div class="right-tab-pane" id="pane-context">
+          <div class="trace-toolbar">
+            <span style="font-size: 11px; color: var(--text-mute); flex: 1;" id="context-meta">未运行</span>
+          </div>
+          <div style="display: flex; flex: 1; overflow: hidden;">
+            <!-- 左侧：轮次列表 -->
+            <div id="context-turns" style="width: 110px; border-right: 1px solid var(--border); overflow-y: auto; padding: 4px 0;">
+              <div style="padding: 8px; font-size: 11px; color: var(--text-mute);">运行后此处显示每轮 turn</div>
+            </div>
+            <!-- 右侧：选中轮次的 messages 详情 -->
+            <div id="context-detail" style="flex: 1; overflow: auto; padding: 8px;">
+              <div style="padding: 16px; font-size: 11px; color: var(--text-mute);">点击左侧轮次查看该轮传给 <code>generate()</code> 的 messages</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Source Code Modal ===== -->
+<div class="modal-overlay" id="source-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="source-modal-title">源码查看</div>
+      <button class="modal-close" id="source-modal-close">×</button>
+    </div>
+    <div class="modal-body">
+      <pre class="source-code" id="source-code">加载中...</pre>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Help Overlay ===== -->
+<div class="help-overlay" id="help-overlay">
+  <div class="help-card">
+    <h2>⌨ 键盘快捷键</h2>
+    <div class="row"><div class="keys"><kbd>1</kbd>-<kbd>5</kbd></div><div class="desc">切换示例</div></div>
+    <div class="row"><div class="keys"><kbd>R</kbd></div><div class="desc">重跑当前示例</div></div>
+    <div class="row"><div class="keys"><kbd>S</kbd></div><div class="desc">停止运行（关闭 SSE）</div></div>
+    <div class="row"><div class="keys"><kbd>J</kbd></div><div class="desc">控制台向下滚动</div></div>
+    <div class="row"><div class="keys"><kbd>K</kbd></div><div class="desc">控制台向上滚动</div></div>
+    <div class="row"><div class="keys"><kbd>/</kbd></div><div class="desc">聚焦搜索框</div></div>
+    <div class="row"><div class="keys"><kbd>?</kbd></div><div class="desc">显示/隐藏此帮助</div></div>
+    <div class="row"><div class="keys"><kbd>Esc</kbd></div><div class="desc">关闭弹窗/帮助</div></div>
+    <div class="close-hint">按 ? 或 Esc 关闭</div>
+  </div>
+</div>
+<script>
+// ===========================================
+// State
+// ===========================================
+let currentScript = 'read-file';
+let isRunning = false;
+let stats = { turns: 0, tools: 0, startTime: 0, elapsed: 0 };
+let progressState = {
+  round: 0,
+  phase: 'idle',         // idle / thinking / acting / observing / done
+  startTime: 0,
+  totalRounds: 0,        // 未知则 0
+  costUSD: 0,
+  costCNY: 0,
+};
+let costTracker = {
+  inputTokens: 0,
+  outputTokens: 0,
+  usd: 0,
+  cny: 0,
+  snapshotDate: null,
+};
+let sessionState = {
+  sessionId: null,
+  workDir: null,
+  knownLines: 0,
+  pollTimer: null,
+};
+let traceState = {
+  root: null,
+  sort_by_duration: false,
+  highlight_slowest: false,
+};
+// ===== 上下文流转状态 =====
+const contextState = {
+  turns: [],        // 每轮 snapshot：{turn, messages, toolNames, totalLen, prevTotalLen, compactorLikelyTriggered}
+  selectedTurn: null,
+};
+let progressTimer = null;
+let abortController = null;
+let activeTab = 'trace';
+const pendingToolCards = new Map(); // toolCallId -> cardEl
+
+// ===========================================
+// Script selection（新 UI 用 .script-card，loadScripts 里动态绑事件）
+// selectScript 留作键盘快捷键 1-9 调用，按卡片索引切
+// ===========================================
+function selectScript(name) {
+  document.querySelectorAll('.script-card').forEach(e => e.classList.remove('selected'));
+  const target = document.querySelector(`.script-card[data-script="${name}"]`);
+  if (target) {
+    target.classList.add('selected');
+    currentScript = name;
+    // 滚动到可视区
+    target.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
+// ===========================================
+// Tab switching (right panel)
+// ===========================================
+document.querySelectorAll('.right-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const name = tab.dataset.tab;
+    activeTab = name;
+    document.querySelectorAll('.right-tab').forEach(t => t.classList.toggle('active', t === tab));
+    document.querySelectorAll('.right-tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById(`pane-${name}`).classList.add('active');
+  });
+});
+
+// ===========================================
+// Run / Stop buttons
+// ===========================================
+document.getElementById('btn-run').addEventListener('click', () => {
+  if (isRunning) return;
+  runDemo();
+});
+document.getElementById('btn-stop').addEventListener('click', () => {
+  stopDemo();
+});
+document.getElementById('btn-realcall-run').addEventListener('click', () => {
+  if (isRunning) return;
+  runRealcall();
+});
+
+function runRealcall() {
+  const provider = document.getElementById('realcall-provider').value;
+  const prompt = document.getElementById('realcall-prompt').value.trim();
+  const planMode = document.getElementById('opt-realcall-plan').checked ? '1' : '0';
+  const useProject = document.getElementById('opt-realcall-project').checked;
+  if (!prompt) {
+    alert('请输入任务 prompt');
+    document.getElementById('realcall-prompt').focus();
+    return;
+  }
+  const workDirParam = useProject ? '&workDir=demos/test-harness' : '';
+  const url = `/api/run?provider=${encodeURIComponent(provider)}&prompt=${encodeURIComponent(prompt)}&plan=${planMode}${workDirParam}`;
+  startRunSession(url);
+}
+
+function runDemo() {
+  const planMode = document.getElementById('opt-plan').checked ? '1' : '0';
+  const url = `/api/run?script=${currentScript}&plan=${planMode}`;
+  startRunSession(url);
+}
+
+function startRunSession(url) {
+  isRunning = true;
+  const btn = document.getElementById('btn-run');
+  const btnRealcall = document.getElementById('btn-realcall-run');
+  btn.disabled = true;
+  btn.textContent = '⏳ 运行中...';
+  btnRealcall.disabled = true;
+  btnRealcall.textContent = '⏳ 运行中...';
+  document.getElementById('btn-stop').classList.add('visible');
+  document.getElementById('status-badge').textContent = '运行中';
+  document.getElementById('console-badge').textContent = '运行中';
+
+  // 重置统计
+  stats = { turns: 0, tools: 0, startTime: Date.now(), elapsed: 0 };
+  document.getElementById('stat-time').textContent = '-';
+  document.getElementById('stat-turns').textContent = '-';
+  document.getElementById('stat-tools').textContent = '-';
+  document.getElementById('stat-cost').textContent = '-';
+
+  // 重置进度条
+  progressState = {
+    round: 0,
+    phase: 'idle',
+    startTime: Date.now(),
+    totalRounds: 0,
+    costUSD: 0,
+    costCNY: 0,
+  };
+  updateProgressUI();
+
+  // 重置 cost
+  costTracker = { inputTokens: 0, outputTokens: 0, usd: 0, cny: 0, snapshotDate: null };
+  updateCostUI();
+
+  // 重置 console
+  const consoleEl = document.getElementById('console');
+  consoleEl.innerHTML = '';
+  pendingToolCards.clear();
+
+  // 重置 trace
+  traceState.root = null;
+  document.getElementById('trace-panel').innerHTML =
+    '<div class="trace-empty">运行中... 完成后显示</div>';
+  document.getElementById('trace-tab-badge').textContent = '0';
+
+  // 重置上下文流转
+  contextState.turns = [];
+  contextState.selectedTurn = null;
+  document.getElementById('context-tab-badge').textContent = '0';
+  document.getElementById('context-meta').textContent = '运行中...';
+  document.getElementById('context-turns').innerHTML =
+    '<div style="padding: 8px; font-size: 11px; color: var(--text-mute);">捕获中...</div>';
+  document.getElementById('context-detail').innerHTML =
+    '<div style="padding: 16px; font-size: 11px; color: var(--text-mute);">每轮 turn 的 messages 快照会实时追加到左侧</div>';
+
+  // 重置 files
+  document.getElementById('files-empty').style.display = 'block';
+  document.getElementById('file-tabs').style.display = 'none';
+  document.getElementById('file-tabs').innerHTML = '';
+  document.getElementById('file-content').style.display = 'none';
+  document.getElementById('file-content').textContent = '';
+  document.getElementById('files-tab-badge').textContent = '0';
+
+  // 重置 session
+  sessionState.knownLines = 0;
+  document.getElementById('session-list').innerHTML =
+    '<div class="session-empty">等待 workdir 就绪...</div>';
+  document.getElementById('session-tab-badge').textContent = '0';
+  document.getElementById('session-meta').textContent = '未运行';
+  if (sessionState.pollTimer) {
+    clearInterval(sessionState.pollTimer);
+    sessionState.pollTimer = null;
+  }
+
+  // 启动进度计时器
+  if (progressTimer) clearInterval(progressTimer);
+  progressTimer = setInterval(() => {
+    if (isRunning) {
+      updateProgressUI();
+    }
+  }, 250);
+
+  // 用 fetch + AbortController 接收 SSE，支持 S 键停止
+  abortController = new AbortController();
+  fetch(url, { signal: abortController.signal }).then(response => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    function read() {
+      reader.read().then(({ done, value }) => {
+        if (done) {
+          finish();
+          return;
+        }
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE 用双换行分割事件
+        const events = buffer.split('\n\n');
+        buffer = events.pop();  // 最后一段可能不完整，留到下次
+
+        for (const evt of events) {
+          parseSSE(evt);
+        }
+        read();
+      }).catch(err => {
+        if (err.name === 'AbortError') {
+          addConsoleLine('event-error', `[用户中止] 已关闭 SSE 连接`);
+        } else {
+          addConsoleLine('event-error', `[网络错误] ${err.message}`);
+        }
+        finish();
+      });
+    }
+    read();
+  }).catch(err => {
+    if (err.name !== 'AbortError') {
+      addConsoleLine('event-error', `[网络错误] ${err.message}`);
+    }
+    finish();
+  });
+}
+
+function stopDemo() {
+  if (!isRunning) return;
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+  }
+  // fetch 会被 abort，finish 由 catch 处理
+}
+
+// ===========================================
+// SSE parsing
+// ===========================================
+function parseSSE(raw) {
+  let eventName = 'message';
+  let dataStr = '';
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('event: ')) {
+      eventName = line.slice(7).trim();
+    } else if (line.startsWith('data: ')) {
+      dataStr += line.slice(6);
+    }
+  }
+  if (!dataStr) return;
+  let data;
+  try { data = JSON.parse(dataStr); } catch { return; }
+  handleEvent(eventName, data);
+}
+
+function handleEvent(eventName, data) {
+  const ts = new Date(data.at || Date.now()).toLocaleTimeString('zh-CN', { hour12: false });
+
+  switch (eventName) {
+    case 'start':
+      addConsoleLine('event-start', `[${ts}] 🚀 启动: ${data.script} (PlanMode: ${data.planMode})`);
+      if (data.sessionId) {
+        sessionState.sessionId = data.sessionId;
+      }
+      progressState.phase = 'idle';
+      break;
+    case 'workdir':
+      addConsoleLine('log-info', `[${ts}] 📁 工作区: ${data.workDir}`);
+      if (data.sessionId) sessionState.sessionId = data.sessionId;
+      sessionState.workDir = data.workDir;
+      // 启动 session 轮询
+      startSessionPolling();
+      document.getElementById('session-meta').textContent =
+        `会话: ${sessionState.sessionId || '-'}`;
+      break;
+    case 'log':
+      addConsoleLine(`log-${data.level}`, `[${ts}] ${data.text}`);
+      // 解析 [Tracker] 📊 行
+      if (data.text && data.text.startsWith('[Tracker] 📊')) {
+        parseTrackerLog(data.text);
+      }
+      // 解析 Turn-N
+      if (data.text) {
+        const turnMatch = data.text.match(/Turn-(\d+)/);
+        if (turnMatch) {
+          progressState.round = parseInt(turnMatch[1]);
+          stats.turns = Math.max(stats.turns, progressState.round);
+          document.getElementById('stat-turns').textContent = stats.turns;
+        }
+        // 引擎唤醒 → 进入 thinking 阶段
+        if (data.text.includes('[Engine] 唤醒')) {
+          progressState.phase = 'thinking';
+        }
+      }
+      break;
+    case 'thinking':
+      addConsoleLine('event-thinking', `[${ts}] 🤔 思考中...`);
+      progressState.phase = 'thinking';
+      break;
+    case 'message':
+      addConsoleLine('event-message', `[${ts}] 🤖 ${data.content}`);
+      break;
+    case 'tool_call':
+      stats.tools++;
+      progressState.phase = 'acting';
+      renderToolCallCard(data, ts);
+      break;
+    case 'tool_result':
+      progressState.phase = 'observing';
+      renderToolResultCard(data, ts);
+      break;
+    case 'trace':
+      traceState.root = data.trace;
+      renderTrace(data.trace);
+      break;
+    case 'context_snapshot':
+      handleContextSnapshot(data);
+      break;
+    case 'files':
+      renderFiles(data.files);
+      break;
+    case 'done':
+      const elapsed = (data.elapsed / 1000).toFixed(2);
+      addConsoleLine('event-done', `[${ts}] ✨ 完成! 耗时 ${elapsed}s`);
+      document.getElementById('stat-time').textContent = elapsed + 's';
+      if (data.estimatedCosts) {
+        const parts = Object.entries(data.estimatedCosts)
+          .map(([cur, amt]) => `${cur} ${Number(amt).toFixed(6)}`)
+          .join(' / ');
+        document.getElementById('stat-cost').textContent = parts || '未配置';
+        if (data.estimatedCosts.USD) progressState.costUSD = data.estimatedCosts.USD;
+        if (data.estimatedCosts.CNY) progressState.costCNY = data.estimatedCosts.CNY;
+      } else {
+        document.getElementById('stat-cost').textContent = '未配置';
+      }
+      progressState.phase = 'done';
+      progressState.totalRounds = progressState.round;
+      // 最后再拉一次 session，确保看到全部行
+      pollSession();
+      break;
+    case 'error':
+      addConsoleLine('event-error', `[${ts}] 💥 错误: ${data.message}\n${data.stack || ''}`);
+      break;
+  }
+
+  if (eventName === 'tool_call') {
+    document.getElementById('stat-tools').textContent = stats.tools;
+  }
+  updateProgressUI();
+}
+
+function addConsoleLine(cls, text) {
+  const consoleEl = document.getElementById('console');
+  const div = document.createElement('div');
+  div.className = `console-line ${cls}`;
+  div.textContent = text;
+  // 应用搜索过滤
+  const q = (document.getElementById('console-search').value || '').toLowerCase();
+  if (q && !text.toLowerCase().includes(q)) {
+    div.classList.add('hidden-by-search');
+  }
+  consoleEl.appendChild(div);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+// ===========================================
+// Console search filter
+// ===========================================
+document.getElementById('console-search').addEventListener('input', (e) => {
+  const q = (e.target.value || '').toLowerCase();
+  document.querySelectorAll('#console .console-line').forEach(line => {
+    const text = (line.textContent || '').toLowerCase();
+    line.classList.toggle('hidden-by-search', q !== '' && !text.includes(q));
+  });
+});
+
+// ===========================================
+// Progress Bar
+// ===========================================
+function updateProgressUI() {
+  const elapsedSec = progressState.startTime
+    ? Math.floor((Date.now() - progressState.startTime) / 1000)
+    : 0;
+  document.querySelector('.round').textContent = `Round ${progressState.round}`;
+  const phaseEl = document.getElementById('progress-phase');
+  phaseEl.textContent = progressState.phase;
+  phaseEl.className = `phase-${progressState.phase}`;
+  document.getElementById('progress-elapsed').textContent = `${elapsedSec}s`;
+  document.getElementById('progress-cost').textContent =
+    `$${progressState.costUSD.toFixed(4)}` +
+    (progressState.costCNY > 0 ? ` / ¥${progressState.costCNY.toFixed(4)}` : '');
+
+  const fillEl = document.getElementById('progress-fill');
+  const pctEl = document.getElementById('progress-pct');
+  if (progressState.phase === 'done') {
+    fillEl.classList.remove('indeterminate');
+    fillEl.style.width = '100%';
+    pctEl.textContent = '100%';
+  } else if (progressState.totalRounds > 0) {
+    fillEl.classList.remove('indeterminate');
+    const pct = Math.min(100, Math.round((progressState.round / progressState.totalRounds) * 100));
+    fillEl.style.width = pct + '%';
+    pctEl.textContent = pct + '%';
+  } else {
+    fillEl.classList.add('indeterminate');
+    fillEl.style.width = '';
+    pctEl.textContent = '...';
+  }
+}
+
+// ===========================================
+// CostTracker panel
+// ===========================================
+function parseTrackerLog(text) {
+  // 形如：[Tracker] 📊 API 完成 | 耗时 Xms | 输入 N tk | 输出 M tk | 估算费用: CURRENCY AMOUNT（价格快照 YYYY-MM-DD）
+  const inputMatch = text.match(/输入\s*(\d+)\s*tk/);
+  const outputMatch = text.match(/输出\s*(\d+)\s*tk/);
+  const costMatch = text.match(/估算费用:\s*(USD|CNY)\s+([\d.]+)/);
+  const snapMatch = text.match(/价格快照\s*(\d{4}-\d{2}-\d{2})/);
+
+  if (inputMatch) costTracker.inputTokens += parseInt(inputMatch[1]);
+  if (outputMatch) costTracker.outputTokens += parseInt(outputMatch[1]);
+  if (costMatch) {
+    const cur = costMatch[1];
+    const amt = parseFloat(costMatch[2]);
+    if (cur === 'USD') costTracker.usd += amt;
+    else if (cur === 'CNY') costTracker.cny += amt;
+  }
+  if (snapMatch) costTracker.snapshotDate = snapMatch[1];
+  updateCostUI();
+}
+
+function updateCostUI() {
+  flashUpdate('cost-input-tokens', costTracker.inputTokens.toLocaleString());
+  flashUpdate('cost-output-tokens', costTracker.outputTokens.toLocaleString());
+  flashUpdate('cost-usd', '$' + costTracker.usd.toFixed(6));
+  flashUpdate('cost-cny', '¥' + costTracker.cny.toFixed(6));
+  document.getElementById('cost-snapshot-date').textContent =
+    costTracker.snapshotDate ? `价格快照: ${costTracker.snapshotDate}` : '未运行';
+}
+
+function flashUpdate(id, value) {
+  const el = document.getElementById(id);
+  if (el.textContent !== value) {
+    el.textContent = value;
+    el.classList.remove('flash');
+    void el.offsetWidth;  // 触发 reflow 重启动画
+    el.classList.add('flash');
+  }
+}
+
+// ===========================================
+// Tool Call / Result Cards
+// ===========================================
+const TOOL_ICONS = {
+  bash: '⌨',
+  read_file: '📄',
+  write_file: '✏',
+  edit_file: '🔧',
+};
+
+function getToolIconClass(name) {
+  if (!name) return 'unknown';
+  // 去掉 [Sub] 前缀
+  const clean = name.replace(/^\[Sub\]\s*/, '');
+  if (TOOL_ICONS[clean]) return clean;
+  return 'unknown';
+}
+
+function summarizeArgs(toolName, argsStr) {
+  try {
+    const args = typeof argsStr === 'string' ? JSON.parse(argsStr) : argsStr;
+    if (!args || typeof args !== 'object') return String(argsStr || '');
+    if (args.command) return args.command.slice(0, 80);
+    if (args.path) return args.path;
+    if (args.old_text && args.new_text) return `${args.path} (${args.old_text.length}→${args.new_text.length} chars)`;
+    return JSON.stringify(args).slice(0, 100);
+  } catch {
+    return String(argsStr || '').slice(0, 100);
+  }
+}
+
+function renderToolCallCard(data, ts) {
+  const consoleEl = document.getElementById('console');
+  const cardId = data.toolCallId || `nocallid_${Date.now()}_${Math.random()}`;
+
+  const card = document.createElement('div');
+  card.className = 'tool-card pending';
+  card.dataset.toolCallId = cardId;
+
+  const iconClass = getToolIconClass(data.toolName);
+  const iconChar = TOOL_ICONS[iconClass] || '🛠';
+
+  card.innerHTML = `
+    <div class="tool-card-header">
+      <span class="tool-icon ${iconClass}">${iconChar}</span>
+      <span class="tool-card-name">${data.toolName}</span>
+      <span class="tool-card-summary">${escapeHtml(summarizeArgs(data.toolName, data.args))}</span>
+      <span class="tool-card-status pending">⏳ pending</span>
+      <span class="tool-card-chevron">▶</span>
+    </div>
+    <div class="tool-card-body">
+      <div class="tool-card-section">
+        <div class="tool-card-section-title">参数 args · ${ts}</div>
+        <pre class="tool-card-json">${escapeHtml(formatArgs(data.args))}</pre>
+      </div>
+      <div class="tool-card-section tool-result-section" style="display:none;">
+        <div class="tool-card-section-title">结果 result</div>
+        <pre class="tool-card-json tool-result-json"></pre>
+      </div>
+      <div class="tool-card-actions">
+        <button class="tool-card-btn view-source" data-tool="${iconClass}">📖 查看源码 (${iconClass}.js)</button>
+      </div>
+    </div>
+  `;
+
+  // 点击 header 展开/收起
+  card.querySelector('.tool-card-header').addEventListener('click', () => {
+    card.classList.toggle('expanded');
+  });
+
+  // 查看源码按钮
+  card.querySelector('.view-source').addEventListener('click', (e) => {
+    e.stopPropagation();
+    openSourceModal(iconClass);
+  });
+
+  consoleEl.appendChild(card);
+  pendingToolCards.set(cardId, card);
+  consoleEl.scrollTop = consoleEl.scrollHeight;
+}
+
+function renderToolResultCard(data, ts) {
+  // 关联到对应的 tool_call 卡片
+  let card = null;
+  if (data.toolCallId) {
+    card = pendingToolCards.get(data.toolCallId);
+  }
+  if (!card) {
+    // 退化为按工具名找最近的 pending 卡片
+    for (const [id, c] of pendingToolCards.entries()) {
+      if (c.querySelector('.tool-card-name').textContent === data.toolName && c.classList.contains('pending')) {
+        card = c;
+        pendingToolCards.delete(id);
+        pendingToolCards.set(data.toolCallId || id, card);
+        break;
+      }
+    }
+  }
+  if (!card) {
+    // 实在找不到就新建一个独立的 result 卡片
+    card = document.createElement('div');
+    card.className = 'tool-card';
+    const iconClass = getToolIconClass(data.toolName);
+    const iconChar = TOOL_ICONS[iconClass] || '🛠';
+    card.innerHTML = `
+      <div class="tool-card-header">
+        <span class="tool-icon ${iconClass}">${iconChar}</span>
+        <span class="tool-card-name">${data.toolName}</span>
+        <span class="tool-card-summary">(仅 result)</span>
+        <span class="tool-card-status"></span>
+        <span class="tool-card-chevron">▶</span>
+      </div>
+      <div class="tool-card-body">
+        <div class="tool-card-section tool-result-section">
+          <div class="tool-card-section-title">结果 result · ${ts}</div>
+          <pre class="tool-card-json tool-result-json"></pre>
+        </div>
+      </div>
+    `;
+    card.querySelector('.tool-card-header').addEventListener('click', () => card.classList.toggle('expanded'));
+    document.getElementById('console').appendChild(card);
+  }
+
+  // 标记完成状态
+  card.classList.remove('pending');
+  card.classList.toggle('error', !!data.isError);
+
+  const statusEl = card.querySelector('.tool-card-status');
+  if (data.isError) {
+    statusEl.textContent = '❌ error';
+    statusEl.className = 'tool-card-status err';
+  } else {
+    statusEl.textContent = '✅ ok';
+    statusEl.className = 'tool-card-status ok';
+  }
+
+  // 填充 result
+  const resultSection = card.querySelector('.tool-result-section');
+  const resultJson = card.querySelector('.tool-result-json');
+  if (resultSection && resultJson) {
+    resultSection.style.display = 'block';
+    resultJson.textContent = data.result || '(空)';
+  }
+
+  // 从 pending 队列移除
+  if (data.toolCallId) pendingToolCards.delete(data.toolCallId);
+}
+
+function formatArgs(args) {
+  if (args == null) return '';
+  if (typeof args === 'string') {
+    try {
+      return JSON.stringify(JSON.parse(args), null, 2);
+    } catch {
+      return args;
+    }
+  }
+  try {
+    return JSON.stringify(args, null, 2);
+  } catch {
+    return String(args);
+  }
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+// ===========================================
+// Source Modal
+// ===========================================
+const sourceModal = document.getElementById('source-modal');
+const sourceCodeEl = document.getElementById('source-code');
+const sourceTitleEl = document.getElementById('source-modal-title');
+
+document.getElementById('source-modal-close').addEventListener('click', closeSourceModal);
+sourceModal.addEventListener('click', (e) => {
+  if (e.target === sourceModal) closeSourceModal();
+});
+
+async function openSourceModal(toolKey) {
+  sourceTitleEl.textContent = `源码: src/.../${toolKey}.js`;
+  sourceCodeEl.textContent = '加载中...';
+  sourceModal.classList.add('visible');
+  try {
+    const resp = await fetch(`/api/source/${encodeURIComponent(toolKey)}`);
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      sourceCodeEl.textContent = `加载失败: ${err.error || resp.status}`;
+      return;
+    }
+    const code = await resp.text();
+    const relPath = resp.headers.get('X-File-Path') || `src/${toolKey}.js`;
+    sourceTitleEl.textContent = `源码: ${relPath}`;
+    renderSourceCode(code);
+  } catch (err) {
+    sourceCodeEl.textContent = `加载失败: ${err.message}`;
+  }
+}
+
+function closeSourceModal() {
+  sourceModal.classList.remove('visible');
+}
+
+// 语法着色：注释行用浅色，含 "string" 的行用绿色，关键字行用紫色
+const KEYWORDS = /\b(import|export|from|const|let|var|function|class|extends|return|if|else|while|for|await|async|new|try|catch|finally|throw|switch|case|break|continue)\b/;
+function renderSourceCode(code) {
+  sourceCodeEl.innerHTML = '';
+  const lines = code.split('\n');
+  for (const line of lines) {
+    const lineEl = document.createElement('span');
+    lineEl.className = 'line';
+    if (line.trim().startsWith('//') || line.trim().startsWith('*')) {
+      lineEl.classList.add('comment');
+    } else if (KEYWORDS.test(line)) {
+      lineEl.classList.add('keyword');
+    }
+    lineEl.textContent = line + '\n';
+    sourceCodeEl.appendChild(lineEl);
+  }
+}
+
+// ===========================================
+// Session JSONL polling
+// ===========================================
+function startSessionPolling() {
+  if (sessionState.pollTimer) clearInterval(sessionState.pollTimer);
+  sessionState.pollTimer = setInterval(pollSession, 1000);
+  pollSession();
+}
+
+async function pollSession() {
+  if (!sessionState.sessionId || !sessionState.workDir) return;
+  try {
+    const url = `/api/session?sessionId=${encodeURIComponent(sessionState.sessionId)}&workDir=${encodeURIComponent(sessionState.workDir)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (!data.lines) return;
+    renderSessionLines(data.lines, data.totalLines);
+  } catch {
+    // 忽略
+  }
+}
+
+function renderSessionLines(lines, total) {
+  const listEl = document.getElementById('session-list');
+  document.getElementById('session-tab-badge').textContent = total || 0;
+  document.getElementById('session-meta').textContent =
+    `${sessionState.sessionId} · ${total || 0} 行`;
+
+  // 第一次渲染或行数变化时重新渲染
+  if (lines.length === sessionState.knownLines) return;
+
+  const hadLines = sessionState.knownLines > 0;
+  const newCount = lines.length - sessionState.knownLines;
+  sessionState.knownLines = lines.length;
+
+  listEl.innerHTML = '';
+  lines.forEach((line, idx) => {
+    const lineEl = document.createElement('div');
+    lineEl.className = `session-line ${line.type}`;
+    // 只闪动新增的行
+    if (hadLines && idx >= lines.length - newCount) {
+      lineEl.classList.add('new-line');
+    }
+    const typeLabel = line.type || 'unknown';
+    const content = formatSessionLine(line);
+    lineEl.innerHTML = `
+      <span class="session-lineno">${line.lineNo}</span>
+      <span class="session-type-tag ${line.type}">${typeLabel}</span>
+      <span class="session-content">${escapeHtml(content)}</span>
+    `;
+    listEl.appendChild(lineEl);
+  });
+
+  // 滚到底部
+  listEl.scrollTop = listEl.scrollHeight;
+}
+
+function formatSessionLine(line) {
+  if (!line.parsed) return line.raw;
+  const p = line.parsed;
+  if (line.type === 'meta') {
+    return `meta id=${p.id} count=${p.count} tokens=${p.totalPromptTokens || 0}/${p.totalCompletionTokens || 0} cost=${JSON.stringify(p.estimatedCosts || {})}`;
+  }
+  if (line.type === 'tool_call') {
+    const calls = (p.toolCalls || []).map(c => `${c.name}(${JSON.stringify(c.arguments || {}).slice(0, 60)})`).join(', ');
+    return `assistant → ${calls}`;
+  }
+  if (line.type === 'tool_result') {
+    return `user/tool → ${String(p.content || '').slice(0, 200)}`;
+  }
+  if (line.type === 'user') {
+    return `user: ${String(p.content || '').slice(0, 200)}`;
+  }
+  if (line.type === 'assistant') {
+    return `assistant: ${String(p.content || '').slice(0, 200)}`;
+  }
+  return JSON.stringify(p).slice(0, 200);
+}
+
+document.getElementById('session-refresh').addEventListener('click', pollSession);
+
+// ===========================================
+// Context Flow Tab 渲染（上下文流转）
+// ===========================================
+// 每收到一个 context_snapshot 事件，记录这一轮传给 generate() 的 messages 快照，
+// 左侧追加一个 turn 条目，右侧渲染选中轮次的 messages 详情。
+function handleContextSnapshot(data) {
+  contextState.turns.push(data);
+  document.getElementById('context-tab-badge').textContent = contextState.turns.length;
+  document.getElementById('context-meta').textContent =
+    `已捕获 ${contextState.turns.length} 轮 · 当前 ${data.totalLen} 字符`;
+  renderContextTurns();
+  // 自动选中最新一轮（除非用户手动选了别的）
+  if (contextState.selectedTurn === null || contextState.selectedTurn === data.turn - 1) {
+    selectContextTurn(data.turn);
+  }
+}
+
+function renderContextTurns() {
+  const box = document.getElementById('context-turns');
+  box.innerHTML = '';
+  contextState.turns.forEach(t => {
+    const el = document.createElement('div');
+    el.className = 'ctx-turn';
+    if (t.compactorLikelyTriggered) el.classList.add('compressed');
+    if (contextState.selectedTurn === t.turn) el.classList.add('active');
+    const delta = t.prevTotalLen > 0 ? t.totalLen - t.prevTotalLen : 0;
+    const deltaStr = t.prevTotalLen > 0
+      ? (delta >= 0 ? `+${delta}` : `${delta}`)
+      : '';
+    el.innerHTML = `
+      <div>Turn ${t.turn}</div>
+      <div class="ctx-turn-small">${t.totalLen} 字符 ${deltaStr ? `(${deltaStr})` : ''}</div>
+      <div class="ctx-turn-small">${t.messages.length} 条消息</div>
+      ${t.compactorLikelyTriggered ? '<div class="ctx-turn-small" style="color:var(--red);">⚠ 疑似压缩</div>' : ''}
+    `;
+    el.addEventListener('click', () => selectContextTurn(t.turn));
+    box.appendChild(el);
+  });
+}
+
+function selectContextTurn(turn) {
+  contextState.selectedTurn = turn;
+  renderContextTurns();
+  const snap = contextState.turns.find(t => t.turn === turn);
+  if (!snap) return;
+  renderContextDetail(snap);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function renderContextDetail(snap) {
+  const box = document.getElementById('context-detail');
+  let html = '';
+
+  // 顶部摘要
+  const delta = snap.prevTotalLen > 0 ? snap.totalLen - snap.prevTotalLen : null;
+  html += `<div class="ctx-summary">
+    <strong>Turn ${snap.turn}</strong> · 传给 <code>generate(messages, tools)</code> 的快照<br>
+    messages 共 <strong>${snap.messages.length}</strong> 条 · 总长 <strong>${snap.totalLen}</strong> 字符
+    ${delta !== null ? `（${delta >= 0 ? '+' : ''}${delta}）` : ''}
+  </div>`;
+
+  // 压缩高亮
+  if (snap.compactorLikelyTriggered) {
+    html += `<div class="ctx-compressed-banner">
+      ⚠ 本轮总长比上一轮明显缩短（${snap.prevTotalLen} → ${snap.totalLen}），疑似触发 Compactor 压缩
+    </div>`;
+  }
+
+  // 工具列表
+  if (snap.toolNames && snap.toolNames.length) {
+    html += `<div class="ctx-tools-list">
+      💡 可用工具（${snap.toolCount}）：${snap.toolNames.join(' · ')}
+    </div>`;
+  }
+
+  // messages 数组
+  snap.messages.forEach(m => {
+    const roleClass = `ctx-msg-role-${m.role}`;
+    const metaParts = [];
+    if (m.origLen !== undefined) metaParts.push(`${m.origLen} 字符`);
+    if (m.toolCallId) metaParts.push(`toolCallId: ${m.toolCallId}`);
+    if (m.isError) metaParts.push('⚠ isError');
+    const meta = metaParts.length ? `<span class="ctx-msg-meta">${metaParts.join(' · ')}</span>` : '';
+    html += `<div class="ctx-msg">
+      <div class="ctx-msg-head">
+        <span class="${roleClass}">[${m.index}] ${m.role}</span>
+        ${meta}
+      </div>
+      <div class="ctx-msg-body">${escapeHtml(m.content || '(空)')}</div>
+      ${m.toolCalls && m.toolCalls.length ? `<div class="ctx-toolcalls">🔧 toolCalls: ${escapeHtml(JSON.stringify(m.toolCalls, null, 2))}</div>` : ''}
+    </div>`;
+  });
+
+  box.innerHTML = html;
+}
+
+// ===========================================
+// Trace Tree (Enhanced)
+// ===========================================
+function renderTrace(rootSpan) {
+  traceState.root = rootSpan;
+  const panel = document.getElementById('trace-panel');
+  panel.innerHTML = '';
+  document.getElementById('trace-tab-badge').textContent = countSpans(rootSpan);
+
+  // 找到最大 duration 做归化
+  const maxDuration = findMaxDuration(rootSpan);
+  const slowest = traceState.highlight_slowest ? findSlowestSpan(rootSpan) : null;
+
+  const tree = buildTraceTree(rootSpan, maxDuration, 0, slowest);
+  panel.appendChild(tree);
+}
+
+function countSpans(span) {
+  let n = 1;
+  for (const c of (span.children || [])) n += countSpans(c);
+  return n;
+}
+
+function findMaxDuration(span) {
+  let max = span.durationMs || 0;
+  for (const child of (span.children || [])) {
+    max = Math.max(max, findMaxDuration(child));
+  }
+  return max;
+}
+
+function findSlowestSpan(span) {
+  let slowest = span;
+  function walk(s) {
+    if ((s.durationMs || 0) > (slowest.durationMs || 0)) slowest = s;
+    for (const c of (s.children || [])) walk(c);
+  }
+  for (const c of (span.children || [])) walk(c);
+  return slowest;
+}
+
+function buildTraceTree(span, maxDuration, depth, slowest) {
+  const wrap = document.createElement('div');
+  wrap.className = 'trace-node-wrap';
+
+  const hasChildren = span.children && span.children.length > 0;
+  if (hasChildren) wrap.classList.add('collapsible');
+
+  const node = document.createElement('div');
+  node.className = 'trace-node';
+  if (depth === 0) node.classList.add('root');
+  else if (span.name.startsWith('Turn-')) node.classList.add('turn');
+  else if (span.name.startsWith('LLM.')) node.classList.add('llm');
+  else if (span.name.startsWith('Tool.')) node.classList.add('tool');
+  if (hasChildren) node.classList.add('collapsible');
+  if (slowest && span === slowest) node.classList.add('slowest');
+
+  // 折叠箭头
+  const chev = document.createElement('span');
+  chev.className = 'trace-chevron';
+  chev.textContent = hasChildren ? '▼' : ' ';
+  node.appendChild(chev);
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'trace-name';
+  nameEl.textContent = span.name;
+  node.appendChild(nameEl);
+
+  const barEl = document.createElement('div');
+  barEl.className = 'trace-bar';
+  const fillEl = document.createElement('div');
+  fillEl.className = 'trace-bar-fill';
+  const pct = maxDuration > 0 ? ((span.durationMs || 0) / maxDuration) * 100 : 0;
+  fillEl.style.width = pct + '%';
+  barEl.appendChild(fillEl);
+  node.appendChild(barEl);
+
+  const durEl = document.createElement('span');
+  durEl.className = 'trace-duration';
+  durEl.textContent = (span.durationMs || 0) + 'ms';
+  node.appendChild(durEl);
+
+  wrap.appendChild(node);
+
+  // 折叠/展开
+  if (hasChildren) {
+    node.addEventListener('click', (e) => {
+      e.stopPropagation();
+      wrap.classList.toggle('collapsed');
+    });
+  }
+
+  // attributes 表格
+  if (span.attributes && Object.keys(span.attributes).length > 0) {
+    const attrsWrap = document.createElement('div');
+    attrsWrap.className = 'trace-attrs';
+    const table = document.createElement('table');
+    table.className = 'trace-attrs-table';
+    for (const [k, v] of Object.entries(span.attributes)) {
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td');
+      td1.textContent = k;
+      const td2 = document.createElement('td');
+      td2.textContent = typeof v === 'object' ? JSON.stringify(v) : String(v);
+      tr.appendChild(td1);
+      tr.appendChild(td2);
+      table.appendChild(tr);
+    }
+    attrsWrap.appendChild(table);
+    wrap.appendChild(attrsWrap);
+  }
+
+  // 子节点
+  if (hasChildren) {
+    const childrenWrap = document.createElement('div');
+    childrenWrap.className = 'trace-children';
+    let children = span.children;
+    if (traceState.sort_by_duration) {
+      children = [...children].sort((a, b) => (b.durationMs || 0) - (a.durationMs || 0));
+    }
+    for (const child of children) {
+      childrenWrap.appendChild(buildTraceTree(child, maxDuration, depth + 1, slowest));
+    }
+    wrap.appendChild(childrenWrap);
+  }
+
+  return wrap;
+}
+
+// trace 工具栏按钮
+document.getElementById('trace-expand-all').addEventListener('click', () => {
+  document.querySelectorAll('#trace-panel .trace-node-wrap.collapsible').forEach(el => el.classList.remove('collapsed'));
+});
+document.getElementById('trace-collapse-all').addEventListener('click', () => {
+  document.querySelectorAll('#trace-panel .trace-node-wrap.collapsible').forEach(el => {
+    // 只折叠非根节点，保留根可见
+    if (el.querySelector('.trace-node.root')) return;
+    el.classList.add('collapsed');
+  });
+});
+document.getElementById('trace-sort').addEventListener('click', (e) => {
+  traceState.sort_by_duration = !traceState.sort_by_duration;
+  e.target.classList.toggle('active', traceState.sort_by_duration);
+  if (traceState.root) renderTrace(traceState.root);
+});
+document.getElementById('trace-highlight-slowest').addEventListener('click', (e) => {
+  traceState.highlight_slowest = !traceState.highlight_slowest;
+  e.target.classList.toggle('active', traceState.highlight_slowest);
+  if (traceState.root) renderTrace(traceState.root);
+});
+
+// ===========================================
+// Files render
+// ===========================================
+let currentFileIdx = 0;
+function renderFiles(files) {
+  if (!files || files.length === 0) return;
+  document.getElementById('files-empty').style.display = 'none';
+  document.getElementById('file-tabs').style.display = 'flex';
+  document.getElementById('file-content').style.display = 'block';
+  document.getElementById('files-tab-badge').textContent = files.length;
+
+  const tabsEl = document.getElementById('file-tabs');
+  const contentEl = document.getElementById('file-content');
+
+  tabsEl.innerHTML = '';
+  files.forEach((f, idx) => {
+    const tab = document.createElement('div');
+    tab.className = 'file-tab' + (idx === 0 ? ' active' : '');
+    tab.textContent = f.name;
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.file-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      contentEl.textContent = f.content;
+      currentFileIdx = idx;
+    });
+    tabsEl.appendChild(tab);
+  });
+
+  if (files.length > 0) {
+    contentEl.textContent = files[0].content;
+  }
+}
+
+// ===========================================
+// Finish
+// ===========================================
+function finish() {
+  isRunning = false;
+  const btn = document.getElementById('btn-run');
+  const btnRealcall = document.getElementById('btn-realcall-run');
+  btn.disabled = false;
+  btn.textContent = '▶ 启动';
+  btnRealcall.disabled = false;
+  btnRealcall.textContent = '⚡ 真调启动';
+  document.getElementById('btn-stop').classList.remove('visible');
+  document.getElementById('status-badge').textContent = '就绪';
+  document.getElementById('console-badge').textContent = '已结束';
+
+  // 停止计时器
+  if (progressTimer) {
+    clearInterval(progressTimer);
+    progressTimer = null;
+  }
+  // 停止 session 轮询（再拉一次最终态后停）
+  setTimeout(() => {
+    if (sessionState.pollTimer) {
+      clearInterval(sessionState.pollTimer);
+      sessionState.pollTimer = null;
+    }
+  }, 1500);
+
+  // 把 pending 卡片标灰
+  for (const card of pendingToolCards.values()) {
+    card.classList.remove('pending');
+    const s = card.querySelector('.tool-card-status');
+    if (s) {
+      s.textContent = '⏹ aborted';
+      s.className = 'tool-card-status';
+    }
+  }
+  pendingToolCards.clear();
+
+  progressState.phase = 'done';
+  updateProgressUI();
+
+  document.getElementById('trace-tab-badge').textContent =
+    traceState.root ? countSpans(traceState.root) : 0;
+}
+
+// ===========================================
+// Keyboard shortcuts
+// ===========================================
+document.addEventListener('keydown', (e) => {
+  // 忽略输入框内的按键
+  const tag = (e.target.tagName || '').toLowerCase();
+  const inInput = tag === 'input' || tag === 'textarea';
+
+  // Esc 始终关闭弹窗
+  if (e.key === 'Escape') {
+    closeSourceModal();
+    document.getElementById('help-overlay').classList.remove('visible');
+    if (inInput) e.target.blur();
+    return;
+  }
+
+  // ? 显示帮助
+  if (e.key === '?' && !inInput) {
+    const help = document.getElementById('help-overlay');
+    help.classList.toggle('visible');
+    return;
+  }
+
+  // / 聚焦搜索框
+  if (e.key === '/' && !inInput) {
+    e.preventDefault();
+    document.getElementById('console-search').focus();
+    return;
+  }
+
+  if (inInput) return;  // 之后的快捷键不在输入框触发
+
+  // 1-9 切示例（对应 12 个示例卡片，按显示顺序）
+  if (/^[1-9]$/.test(e.key)) {
+    if (isRunning) return;
+    const cards = document.querySelectorAll('.script-card');
+    const idx = parseInt(e.key, 10) - 1;
+    if (cards[idx]) {
+      selectScript(cards[idx].dataset.script);
+    }
+    return;
+  }
+
+  // R 重跑
+  if (e.key === 'r' || e.key === 'R') {
+    if (!isRunning) runDemo();
+    return;
+  }
+
+  // S 停止
+  if (e.key === 's' || e.key === 'S') {
+    if (isRunning) stopDemo();
+    return;
+  }
+
+  // J / K 滚动控制台
+  if (e.key === 'j' || e.key === 'J') {
+    e.preventDefault();
+    scrollConsoleBy(80);
+    return;
+  }
+  if (e.key === 'k' || e.key === 'K') {
+    e.preventDefault();
+    scrollConsoleBy(-80);
+    return;
+  }
+});
+
+function scrollConsoleBy(delta) {
+  const body = document.querySelector('#console').closest('.panel-body');
+  if (body) body.scrollTop += delta;
+}
+
+// ===========================================
+// Help overlay
+// ===========================================
+document.getElementById('btn-help').addEventListener('click', () => {
+  document.getElementById('help-overlay').classList.toggle('visible');
+});
+document.getElementById('help-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'help-overlay') {
+    e.target.classList.remove('visible');
+  }
+});
+
+// ===========================================
+// 初始化
+// ===========================================
+updateProgressUI();
+updateCostUI();
+
+// ===========================================
+// 左栏双 tab 切换 + 示例卡片 + 预设 prompt
+// ===========================================
+const PRESET_PROMPTS = {
+  read:  '读 README.md 介绍 calc-app 是什么，再看 src/index.js 解释 calc 函数支持哪些操作',
+  write: '给 src/index.js 增加取模运算（mod）：参考现有 add/sub 的写法在 switch 里加一个 case，并在用法提示里补上 mod',
+  edit:  'src/index.js 里除法（div）结果不对，比如 div 10 2 应该返回 5 但现在返回 20。定位并修复这个 bug',
+  bash:  '用 bash 跑 node src/index.js add 2 3 和 node src/index.js div 10 2，确认 add 正常、div 有 bug',
+  plan:  '帮我规划 calc-app 的重构方案：要支持链式运算（如 add 2 3 mul 4）和括号优先级。把步骤写进 PLAN.md',
+  multi: '我要给 calc-app 加个幂运算（pow）。先问我希望用 ** 还是 Math.pow 实现，然后帮我改代码',
+};
+
+// 顶部双 tab 切换
+document.querySelectorAll('.mode-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const mode = tab.dataset.mode;
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t === tab));
+    document.querySelectorAll('.mode-pane').forEach(p => p.classList.toggle('active', p.id === `pane-${mode}`));
+  });
+});
+
+// 示例卡片：启动时从 /api/scripts 拉数据动态生成
+async function loadScripts() {
+  try {
+    const resp = await fetch('/api/scripts');
+    const data = await resp.json();
+    const grid = document.getElementById('script-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    for (const s of data.scripts) {
+      const card = document.createElement('div');
+      card.className = 'script-card';
+      card.dataset.script = s.key;
+      card.innerHTML = `
+        <div class="script-card-header">
+          <span class="script-section">§${s.section}</span>
+          <span class="script-title">${s.title}</span>
+        </div>
+        <div class="script-hint">${s.hint}</div>
+      `;
+      card.addEventListener('click', () => {
+        if (isRunning) return;
+        document.querySelectorAll('.script-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        currentScript = s.key;
+      });
+      grid.appendChild(card);
+    }
+    // 默认选第一个
+    const first = grid.querySelector('.script-card');
+    if (first) {
+      first.classList.add('selected');
+      currentScript = first.dataset.script;
+    }
+  } catch (err) {
+    const grid = document.getElementById('script-grid');
+    if (grid) {
+      grid.innerHTML = '<div class="script-card-skeleton">加载示例失败：' + (err && err.message ? err.message : err) + '</div>';
+    }
+  }
+}
+
+// 6 个预设 prompt 按钮
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const preset = btn.dataset.preset;
+    const ta = document.getElementById('realcall-prompt');
+    if (ta && PRESET_PROMPTS[preset] != null) {
+      ta.value = PRESET_PROMPTS[preset];
+      ta.focus();
+    }
+  });
+});
+
+// 启动时加载示例列表
+loadScripts();
+// 真调 textarea 默认填入第一个预设，让用户一进来就有内容可跑
+document.getElementById('realcall-prompt').value = PRESET_PROMPTS.read;
+</script>
+</body>
+</html>
