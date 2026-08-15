@@ -58,6 +58,15 @@ export class AgentEngine {
 
     // 用 startSpan 包裹整个 Run，结束时自动导出 trace
     await startSpan('Agent.Run', async (rootSpan) => {
+      // attribute（属性）是附加在 Span 上的一组「键 → 值」元数据，不参与 Agent 的推理或控制流，
+      // 只会随 trace 一起导出，便于事后检索、筛选和排障。这里的 rootSpan 本身来自 startSpan()：
+      // startSpan 在 src/observability/trace.js 中执行 `new Span('Agent.Run')` 后，将该对象作为回调参数传入。
+      //
+      // addAttribute() 是本项目 Span 类自己定义的方法，不是 JavaScript / Node.js 内置 API；它的实现是：
+      //   this.attributes[key] = value
+      // 因而下面两次调用会在 trace JSON 中形成：
+      //   { "attributes": { "sessionId": "...", "workDir": "/..." } }
+      // 用 sessionId 可关联一次运行与 Session 文件；用 workDir 可定位这次 Agent 实际操作的工作区。
       rootSpan.addAttribute('sessionId', session.id);
       rootSpan.addAttribute('workDir', session.workDir);
 
@@ -195,11 +204,23 @@ export class AgentEngine {
       session.append(...observationEntries.map((e) => e.message));
 
       // ========== Reminder：死循环检测 ==========
-      // 用第一个工具调用做检测（和 Go 版一致）
-      const first = observationEntries[0];
-      const reminderMsg = this.injector.checkAndInject(first.call, first.result);
-      if (reminderMsg) {
-        session.append(reminderMsg);
+      // 一轮可以并发执行多个工具；每个 (工具名 + 参数) 都可能独立陷入重复失败，
+      // 因而不能只检查 observationEntries[0]。依次检测全部结果，并让 ReminderInjector
+      // 按指纹独立累计 / 清除计数：A 工具成功不会掩盖 B 工具的连续失败。
+      // 一轮有多个调用同时达到阈值时会追加多条提醒，它们分别对应不同的失败证据。
+      // map 会保持数组长度：对每个工具结果调用 checkAndInject。
+      // 该方法在“未达到连续失败阈值”时返回 null，达到阈值时才返回一条 Message，
+      // 所以 map 后的中间数组可能是 [null, Message, null, Message]。
+      //
+      // filter(Boolean) 会把每个元素传给 Boolean(...) 转成 true / false，并只保留 true 的元素。
+      // 对象（这里的 Message）转换后为 true，null 为 false；因此过滤后只剩真正需要注入会话的提醒：
+      // [null, Message_A, null, Message_B] → [Message_A, Message_B]。
+      // 不过滤就把 null 传入 session.append(...messages)，会把无效元素混进会话历史。
+      const reminderMessages = observationEntries
+        .map(({ call, result }) => this.injector.checkAndInject(call, result))
+        .filter(Boolean);
+      if (reminderMessages.length > 0) {
+        session.append(...reminderMessages);
       }
 
       return false;  // 继续下一轮

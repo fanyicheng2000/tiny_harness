@@ -5,7 +5,7 @@
 //
 // 第一层：核心身份 + 纪律（硬编码，所有项目通用）
 // 第二层：项目专属指南（读 AGENTS.md）
-// 第三层：动态技能（读 .tiny-harness/skills/*/SKILL.md）
+// 第三层：动态技能目录（仅注入 name + description；正文由 read_skill 工具按需加载）
 //
 // Plan Mode 时额外注入"长程任务强制规范"
 // ===========================================
@@ -75,10 +75,12 @@ export class PromptComposer {
       // 没有 AGENTS.md，跳过
     }
 
-    // ===== 第三层：动态技能 =====
-    const skillsContent = this.skillLoader.loadAll();
-    if (skillsContent) {
-      prompt += skillsContent;
+    // ===== 第三层：动态技能目录（渐进式加载） =====
+    // 启动时只告诉模型有哪些技能以及各自触发条件；不把全部 SKILL.md 正文塞入上下文。
+    // 模型确定任务匹配某项技能后，才能通过 read_skill(skill_name) 获取那一项的完整执行指南。
+    const skillCatalog = this.skillLoader.buildCatalog();
+    if (skillCatalog) {
+      prompt += skillCatalog;
     }
 
     return new Message({ role: Role.SYSTEM, content: prompt });

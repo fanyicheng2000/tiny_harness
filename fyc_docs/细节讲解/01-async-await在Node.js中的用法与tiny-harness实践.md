@@ -28,18 +28,86 @@ const promise = getValue();
 
 `promise` 是 `Promise`，而非字符串。`async` 函数内 `return value` 会得到成功状态的 Promise；`throw error` 会得到失败状态的 Promise。
 
-### `await`：等待 Promise 的最终结果
+### `await`：不是“把异步变同步”，而是“异步地等结果，再继续写后续逻辑”
+
+先记一句最实用的话：
+
+> `await promise` 的结果是 Promise 成功后的值；在结果到来前，**当前 async 函数**停在这一行，但 Node.js 主线程并没有被卡死。
+
+以本项目的代码为例：
 
 ```js
-async function main() {
-  const value = await getValue();
-  console.log(value); // done
-}
+const resp = await fetch(url, options);
+console.log(resp.status);
 ```
 
-`await` 暂停的是当前 `async` 函数后续语句，并不阻塞整个 Node.js 事件循环。网络、文件 I/O 和其他已调度任务仍可运行。
+可以按下面的时间线理解：
 
-当 Promise 失败时，`await` 会在当前位置抛错，可用 `try/catch` 处理：
+1. `fetch(url, options)` **立刻发起** HTTP 请求，并立刻返回一个 Promise（此时还没有 `resp`）。
+2. `await` 发现 Promise 未完成，于是保存“`fetch` 完成后，从 `console.log` 前继续执行”的位置，先退出当前 `generate()` 的执行。
+3. Node.js 在等待网络期间可以继续处理其他 I/O、定时器和其他请求。
+4. HTTP 响应到达后，Promise 成功完成；Node.js 回来继续执行这一函数，`resp` 才被赋值为响应对象，再执行下一行。
+
+所以它有两个看似矛盾、实际同时成立的特征：
+
+- 对**这段业务流程**而言是顺序的：没有响应就不能执行 `resp.status`，因此下一行会等。
+- 对**Node.js 进程**而言仍是异步的：等网络时不会像同步读取那样占住主线程。
+
+### 与 Java `Future` / `CompletableFuture` 的类比
+
+下面两段的意图很接近：先发请求，拿到结果后打印状态。
+
+```java
+// Java：requestAsync 返回 CompletableFuture<Response>
+CompletableFuture<Response> future = client.requestAsync(request);
+Response response = future.get(); // 等待结果
+System.out.println(response.status());
+```
+
+```js
+// JavaScript：fetch 返回 Promise<Response>
+const response = await fetch(url, options); // 等待结果
+console.log(response.status);
+```
+
+`Promise` 类似 `CompletableFuture`：都是“将来才有的结果容器”。但等待方式的关键区别是：
+
+| 写法 | 等待期间发生什么 |
+| --- | --- |
+| Java `future.get()` / `future.join()` | 通常阻塞**调用它的线程**；该线程不能继续干别的 Java 代码。 |
+| JavaScript `await promise` | 暂停**当前 async 函数的后续语句**，把主线程还给事件循环；其他已就绪任务可以继续执行。 |
+
+注意：Java 中也可以不用 `get()`，而用 `future.thenApply(...)` 注册后续回调，达到非阻塞组合效果；这在概念上更接近 JavaScript 的 `promise.then(...)`。`await` 只是把这种“完成后再继续”的回调链写成了从上到下的样子。
+
+### `await` 应该怎么用：先判断有没有数据依赖
+
+**后一步依赖前一步结果：使用顺序 `await`。** 本项目必须先收到模型回复，才能读取它要求调用哪个工具：
+
+```js
+const modelMessage = await provider.generate(messages, tools);
+const toolResults = await Promise.all(
+  modelMessage.toolCalls.map((call) => registry.execute(call))
+);
+```
+
+这不是性能问题，而是逻辑上确实不能并行。
+
+**彼此独立：先同时启动，再一起等待。**
+
+```js
+// 错误理解：两次 await 会让 B 在 A 完成后才开始，属于串行。
+const a = await taskA();
+const b = await taskB();
+
+// 若 A、B 没有依赖关系：先发起两个任务，再等待它们都完成。
+const aPromise = taskA();
+const bPromise = taskB();
+const [a, b] = await Promise.all([aPromise, bPromise]);
+```
+
+因此，`await` 本身不决定程序“同步还是异步”：`fetch`、文件读取等操作本来就是异步的，`await` 只是声明“此处后续逻辑必须等它的结果”。只有 `fs.readSync()` 这类同步 API 才会真正阻塞 Node.js 主线程。
+
+当 Promise 失败时，`await` 会在当前位置像 Java 的 `get()` 抛异常一样抛出错误，可用 `try/catch` 处理：
 
 ```js
 try {
@@ -216,6 +284,40 @@ const [a, b] = await Promise.all([taskA(), taskB()]);
 4. 在调用边界处理失败：Provider 可抛网络错误；Registry 将工具错误转换成模型能理解的结构化观察。
 5. 不要遗漏关键 await，尤其是 Session 落盘、Trace 导出、Agent 引擎运行和用户输入等待。
 
-## 10. 一句话总结
+## 10. Promise 是什么？和 Java `Future` 像吗？
+
+可以把 `Promise` 理解成 Java 中 `Future` / `CompletableFuture` 的近亲：它们都代表一个**现在还没有、未来会得到的异步结果**。
+
+例如本项目的 Provider 发起 HTTP 请求：
+
+```js
+const pendingMessage = provider.generate(messages, tools);
+```
+
+网络响应尚未到达时，`pendingMessage` 不是模型回复 `Message`，而是一个 Promise。等结果时写：
+
+```js
+const message = await provider.generate(messages, tools);
+```
+
+Promise 有三种状态：
+
+| 状态 | 含义 | Java 的近似概念 |
+| --- | --- | --- |
+| `pending` | 任务仍在进行，结果尚未产生 | 未完成的 `Future` |
+| `fulfilled` | 任务成功，携带一个结果值 | 正常完成的 `Future` |
+| `rejected` | 任务失败，携带一个错误原因 | 异常完成的 `Future` |
+
+状态只能从 `pending` 变为成功或失败一次，不能再改回等待状态，也不能用第二个结果覆盖第一个结果。此前审批代码中的 `resolve(answer)`，就是将等待输入的 Promise 从 `pending` 变为 `fulfilled`，并把用户输入的 `answer` 作为结果交给 `await`。
+
+### 与 Java 的关键区别
+
+- **相似点**：两者都可先启动任务、后等待结果，并能传播成功值或异常；`await promise` 的阅读体验很接近 `future.get()` / `future.join()`。
+- **不完全相同**：Java 的 `Future.get()` 通常会阻塞当前线程；JavaScript 的 `await` 只暂停当前 `async` 函数的后续代码，不阻塞 Node.js 事件循环。
+- **更接近的 Java API**：Promise 的 `then` / `catch` 更像 `CompletableFuture.thenApply` / `exceptionally`；`Promise.all([...])` 则近似 `CompletableFuture.allOf(...)` 后再汇聚各任务结果。
+
+因此可以这样记忆：**Promise 是 JavaScript 对“未来结果”的标准表示；`async` 函数负责返回 Promise，`await` 负责在逻辑上等待它完成。**
+
+## 11. 一句话总结
 
 在 tiny-harness 中，`async` 表示“该能力的完成时间不确定，结果会以 Promise 返回”；`await` 表示“后续逻辑依赖它，必须等它完成”。ReAct 的轮次靠串行 await 保证因果顺序，同轮工具靠 `Promise.all + await` 获得并发性能，Registry 与 Trace 则借助 await 把异步错误和生命周期纳入可控的 Agent 系统。

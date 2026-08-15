@@ -97,20 +97,35 @@ function fuzzyReplace(originalContent, oldText, newText) {
     throw new Error(`old_text 匹配到了 ${exactCount} 处，请提供更多的上下文代码以确保唯一性`);
   }
 
-  // L2: 换行符归一化（兼容 Windows \r\n 和 Unix \n）
+  // L2: 换行符归一化（兼容 Windows \r\n 和 Unix \n）。
+  //
+  // 同一段代码在 Windows 文件中可能是 "第一行\r\n第二行"，而模型提供的 old_text
+  // 往往是 "第一行\n第二行"。肉眼看起来都换行了，但字符串并不相等，L1 精确匹配会失败。
+  // 这里先把“文件内容”和“模型给出的旧文本”中的 \r\n 统一替换为 \n，再重新比较。
   const normalizedContent = originalContent.replaceAll('\r\n', '\n');
   const normalizedOld = oldText.replaceAll('\r\n', '\n');
 
+  // 仍然要求恰好只出现 1 次才替换：出现 0 次继续尝试更宽松的 L3；
+  // 出现多次也不能随便替换，否则可能误改多个相同代码块。
   const normalizedCount = countOccurrences(normalizedContent, normalizedOld);
   if (normalizedCount === 1) {
+    // 注意这里返回的是“换行已统一为 \n”的完整文件内容；这是 L2 为兼容跨平台换行做出的结果。
     return normalizedContent.replace(normalizedOld, newText);
   }
 
-  // L3: Trim Space 匹配（去掉 old_text 两端空白）
+  // L3: 去掉 old_text 最前和最后的空白后再匹配。
+  //
+  // 模型复制代码时，常会在片段开头多带一个空行/空格，或在结尾多带换行；
+  // 这些“包在代码块外侧”的空白通常不影响真正想替换的代码，却会让 L2 无法精确命中。
+  // trim() 只移除整个 old_text 两端的空格、制表符、换行，不会删除中间代码行的缩进。
   const trimmedOld = normalizedOld.trim();
+
+  // 空字符串不能作为替换目标：它会在任意位置都能“匹配”，没有唯一含义。
   if (trimmedOld !== '') {
+    // 仍在“已统一为 \n 的文件内容”中查找，只有恰好命中一处才允许替换，防止误改。
     const trimmedCount = countOccurrences(normalizedContent, trimmedOld);
     if (trimmedCount === 1) {
+      // 替换时只替换去掉片段两端多余空白后的代码；文件中该代码本身的内部缩进保持不变。
       return normalizedContent.replace(trimmedOld, newText);
     }
   }
@@ -131,8 +146,14 @@ function countOccurrences(haystack, needle) {
   return count;
 }
 
-// L4: 逐行 trim 后匹配
-// 用途：模型复制粘贴代码时常常丢缩进或加缩进，这里把每一行的缩进都忽略掉再比
+// L4：最后一级、最宽松的替换策略——逐行忽略首尾空白后匹配。
+//
+// 前面的 L1/L2/L3 都要求 old_text 的“每一行内部缩进”基本一致；但模型复制粘贴代码时，
+// 常会把 4 个空格缩进写成 2 个、完全漏掉缩进，或额外加上缩进。此方法会将候选片段与文件
+// 中对应的每一行分别 trim() 后比较，找到唯一匹配的连续行区间，再用 newText 替换原始行区间。
+//
+// 注意：它只忽略“每行两端的空白”，不会忽略行中间的字符差异；并且仍要求唯一命中，
+// 因此比直接模糊搜索更安全。由于容错最强、误匹配风险也最高，所以放在四级策略最后。
 function lineByLineReplace(content, oldText, newText) {
   const contentLines = content.split('\n');
   const oldLines = oldText.trim().split('\n');
