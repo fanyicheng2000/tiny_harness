@@ -234,34 +234,27 @@ export class AgentEngine {
   //       就拉起一个子 Agent，给它只读工具，让它探路
   //
   // 特点：
-  //   1. 不依赖外部 Session，跑完即销毁
-  //   2. 只给只读工具（read_file / bash 的 grep/find 等）
-  //   3. 最多 10 个 Turn，防止子智能体卡死
-  //   4. 强制 System Prompt 警告它必须用工具，不许偷懒
+  //   1. 不依赖主 Session 的完整对话，使用独立上下文
+  //   2. 只给调用方构造的最小权限 Registry
+  //   3. 最大 Turn 和 System Prompt 由 AgentDefinition 传入，支持 Explorer / Reviewer / Test Planner 等专业角色
+  //   4. 子 Agent 不会拿到 run_subagent，因此始终只有一层委派
   // ===========================================
-  async runSub(taskPrompt, readOnlyRegistry, reporter) {
+  async runSub(taskPrompt, readOnlyRegistry, reporter, {
+    systemPrompt = defaultSubagentPrompt(),
+    maxTurns = 10,
+  } = {}) {
     let contextHistory = [
-      new Message({
-        role: Role.SYSTEM,
-        content: `你是一个专门负责深度探索的探路者 (Explorer Subagent)。
-你的任务是根据主架构师的指令，在当前工作区内仔细阅读代码、查阅日志，搜集足够的信息。
-
-【核心纪律】
-1. 你必须、且只能依靠内置工具（如 bash 的 find/grep，或 read_file）去寻找答案。绝对不允许凭空捏造或猜测！
-2. 如果你没有找到确切的答案，你必须继续使用工具深入搜索。
-3. 当且仅当你找到了确切的线索后，停止调用工具，直接输出一段纯文本作为你的终极汇报。主架构师会根据你的汇报来做下一步决策。`,
-      }),
+      new Message({ role: Role.SYSTEM, content: systemPrompt }),
       new Message({ role: Role.USER, content: taskPrompt }),
     ];
 
-    const MAX_SUB_TURNS = 10;
     let turnCount = 0;
 
     while (true) {
       turnCount++;
-      if (turnCount > MAX_SUB_TURNS) {
+      if (turnCount > maxTurns) {
         throw new Error(
-          `子智能体探索过于深入，超过 ${MAX_SUB_TURNS} 轮被强制召回，请主 Agent 给它更明确的指令`
+          `子智能体执行超过 ${maxTurns} 轮被强制召回，请 Coordinator 给出更明确的指令`
         );
       }
 
@@ -307,4 +300,15 @@ export class AgentEngine {
       contextHistory.push(...observationMsgs);
     }
   }
+}
+
+// 未通过 AgentDefinition 传入角色 Prompt 时使用的兼容默认值。
+function defaultSubagentPrompt() {
+  return `你是一个专门负责深度探索的 Explorer Subagent。
+你的任务是根据 Coordinator 的指令，在当前工作区内仔细阅读代码，搜集足够的信息。
+
+【核心纪律】
+1. 你必须、且只能依靠内置工具寻找答案，绝对不允许凭空捏造或猜测！
+2. 如果没有找到确切答案，继续使用工具深入搜索。
+3. 找到足够线索后，停止调用工具，输出纯文本报告供 Coordinator 决策。`;
 }
