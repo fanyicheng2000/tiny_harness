@@ -16,10 +16,10 @@ import { Message, Role } from '../schema/message.js';
 import { SkillLoader } from './skill.js';
 
 export class PromptComposer {
-  constructor(workDir, planMode = false) {
+  constructor(workDir, planMode = false, allowedSkillIds = null) {
     this.workDir = workDir;
     this.planMode = planMode;
-    this.skillLoader = new SkillLoader(workDir);
+    this.skillLoader = new SkillLoader(workDir, allowedSkillIds);
   }
 
   // 组装完整的 System Prompt

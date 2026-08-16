@@ -24,8 +24,9 @@ export class Skill {
 }
 
 export class SkillLoader {
-  constructor(workDir) {
+  constructor(workDir, allowedSkillIds = null) {
     this.workDir = workDir;
+    this.allowedSkillIds = allowedSkillIds === null ? null : new Set(allowedSkillIds);
   }
 
   // 扫描技能目录并返回目录项。该方法只返回名称和触发条件，绝不把正文放入 System Prompt。
@@ -49,7 +50,9 @@ export class SkillLoader {
         // 单个技能格式错误或不可读不应阻止 Agent 启动，跳过它即可。
       }
     }
-    return skills;
+    return this.allowedSkillIds
+      ? skills.filter((skill) => this.allowedSkillIds.has(skill.name))
+      : skills;
   }
 
   // 生成注入 System Prompt 的轻量目录；模型只能看到技能名和何时使用，需通过 read_skill 获取正文。
