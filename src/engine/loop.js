@@ -22,10 +22,10 @@
 //   ReAct 把两者交错：每一步先想，再动。失败时有反思能力。
 // ===========================================
 
-import { Message, Role, ToolResult } from '../schema/message.js';
 import { Compactor } from '../context/compactor.js';
 import { RecoveryManager } from '../context/recovery.js';
 import { PromptComposer } from '../context/composer.js';
+import { Message, Role, ToolResult } from '../schema/message.js';
 import { ReminderInjector } from './reminder.js';
 import { startSpan, exportTraceToFile } from '../observability/trace.js';
 import { Thread } from '../context/thread.js';
@@ -37,11 +37,12 @@ export class AgentEngine {
    * @param {boolean} enableThinking  是否开启慢思考两阶段
    * @param {boolean} planMode        是否开启 Plan Mode（持久化 + 断点续传）
    */
-  constructor(provider, registry, enableThinking = false, planMode = false) {
+  constructor(provider, registry, enableThinking = false, planMode = false, systemMessageFactory = null) {
     this.provider = provider;
     this.registry = registry;
     this.enableThinking = enableThinking;
     this.planMode = planMode;
+    this.systemMessageFactory = systemMessageFactory;
     this.compactor = new Compactor(200000, 6);
     this.recovery = new RecoveryManager();
     this.injector = new ReminderInjector();
@@ -72,7 +73,9 @@ export class AgentEngine {
       rootSpan.addAttribute('workDir', session.workDir);
 
       const composer = new PromptComposer(session.workDir, this.planMode);
-      const systemMsg = composer.build();
+      const systemMsg = this.systemMessageFactory
+        ? this.systemMessageFactory(session.workDir, this.planMode)
+        : composer.build();
 
       let turnCount = 0;
 

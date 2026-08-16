@@ -56,6 +56,9 @@ import {
 import { CostTracker } from './observability/tracker.js';
 import { AgentEngine } from './engine/loop.js';
 import { TerminalReporter } from './engine/terminal-reporter.js';
+import { AgentRegistry } from './agents/agent-registry.js';
+import { defaultAgentConfig } from './agents/default-config.js';
+import { buildAgentRegistry, buildAgentSystemMessage } from './agents/runtime.js';
 
 // ===========================================
 // 1. 简单的命令行参数解析（不引第三方库）
@@ -398,15 +401,11 @@ async function main() {
   // 用 CostTracker 装饰一层（mock 也会走，但单价 0）
   const trackedProvider = new CostTracker(realProvider, modelName, session);
 
-  // 构造主工具注册表。run_subagent 依赖 engine / reporter，因此先登记不依赖引擎的工具，
-  // 创建 AgentEngine 与 TerminalReporter 后再把委派工具注册进同一个主 Registry。
-  const registry = new Registry();
-  registry.register(new ReadFileTool(workDir));
-  // System Prompt 中只有技能目录；模型命中某项技能后通过 read_skill 按需加载其完整 SKILL.md 正文。
-  registry.register(new ReadSkillTool(workDir));
-  registry.register(new WriteFileTool(workDir));
-  registry.register(new EditFileTool(workDir));
-  registry.register(new BashTool(workDir));
+  // CLI 使用教学默认主 Agent 配置；平台接入时可替换为数据库/API 下发的同构配置。
+  const agentRegistry = new AgentRegistry(defaultAgentConfig);
+  const rootAgent = agentRegistry.getRootAgent();
+  // 引擎构造前 Registry 尚不可用，因此先创建空 Registry；随后由配置驱动运行时构造最终 Registry。
+  let registry = new Registry();
 
   // 决定本次运行是否要在 bash / write_file / edit_file 真正执行前询问用户。
   //
@@ -423,34 +422,27 @@ async function main() {
     args.requireApproval ||
     (args.provider !== 'mock' && !args.autoApprove);
 
-  if (shouldApprove) {
-    // 这一行从里到外可以这样理解：
-    // 1. `{ autoApprove: false }`：创建审批器时先关闭“全部自动放行”；首次危险操作必须询问用户；
-    // 2. makeApprovalMiddleware(...)：返回一个函数，接收 ToolCall 后会向终端提问并返回 { allowed, rejectReason }；
-    // 3. registry.use(...)：把这个函数登记到 Registry 的 middlewares 数组。
-    // 此后模型请求 bash / write_file / edit_file 时，Registry 会先调用这个审批函数；
-    // 用户输入 y 才执行、n 则拦截、a 则从当前这次起后续调用都放行。
-    registry.use(makeApprovalMiddleware({ autoApprove: false }));
-    console.log('🛡️ 已挂载终端审批中间件（bash/write/edit 需确认）');
-  } else {
-    // 不挂审批中间件，Registry 会直接执行工具；YOLO 只是“跳过人工确认”，不是安全沙箱。
-    console.log('🛡️ 已跳过审批（YOLO 模式）');
-  }
+  const approvalMiddleware = shouldApprove ? makeApprovalMiddleware({ autoApprove: false }) : null;
+  console.log(shouldApprove ? '🛡️ 已挂载终端审批中间件（bash/write/edit 需确认）' : '🛡️ 已跳过审批（YOLO 模式）');
 
-  // 构造引擎
+  // 先创建引擎，再按 rootAgent 配置建立最终 Registry 并回填引擎。
   const engine = new AgentEngine(
     trackedProvider,
     registry,
     args.thinking,
-    args.plan
+    args.plan,
+    (agentWorkDir, planMode) => buildAgentSystemMessage({ agent: rootAgent, workDir: agentWorkDir, planMode })
   );
-
-  // 终端输出器
   const reporter = new TerminalReporter();
-
-  // 将已有的 engine.runSub() 接入模型可调用的工具。该工具运行时只创建 read_file 子 Registry，
-  // 不会把主 Registry 的写文件、编辑、bash 或 run_subagent 权限交给子 Agent。
-  registry.register(new RunSubagentTool({ engine, workDir, reporter }));
+  registry = buildAgentRegistry({
+    agent: rootAgent,
+    workDir,
+    engine,
+    reporter,
+    agentRegistry,
+    middleware: approvalMiddleware,
+  });
+  engine.registry = registry;
 
   // ===========================================
   // 两种输入模式：由是否传入「非空的 --prompt」触发，而不是由 Agent 内部调用几次工具决定。
