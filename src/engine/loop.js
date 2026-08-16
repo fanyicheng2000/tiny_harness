@@ -28,6 +28,7 @@ import { RecoveryManager } from '../context/recovery.js';
 import { PromptComposer } from '../context/composer.js';
 import { ReminderInjector } from './reminder.js';
 import { startSpan, exportTraceToFile } from '../observability/trace.js';
+import { Thread } from '../context/thread.js';
 
 export class AgentEngine {
   /**
@@ -242,12 +243,37 @@ export class AgentEngine {
   async runSub(taskPrompt, readOnlyRegistry, reporter, {
     systemPrompt = defaultSubagentPrompt(),
     maxTurns = 10,
+    threadId = null,
+    workDir = null,
   } = {}) {
-    let contextHistory = [
+    // 子 Agent 独立 Thread：若传入 threadId 和 workDir，则优先从 JSONL 加载已有上下文；
+    // 这样 Coordinator 可以用 "继续调研" 等后续指令复用同一子 Agent 的历史记忆。
+    let contextHistory;
+    let turnCount = 0;
+    if (threadId && workDir) {
+      const thread = Thread.load(threadId, workDir);
+      if (thread.history.length === 0) {
+        thread.append(new Message({ role: Role.SYSTEM, content: systemPrompt }));
+        thread.append(new Message({ role: Role.USER, content: taskPrompt }));
+      } else {
+        thread.append(new Message({ role: Role.USER, content: taskPrompt }));
+      }
+      contextHistory = thread.history;
+      const subReporter = reporter || null;
+      const subReport = await this._runSubLoop(contextHistory, readOnlyRegistry, subReporter, maxTurns);
+      thread.save();
+      return subReport;
+    }
+
+    contextHistory = [
       new Message({ role: Role.SYSTEM, content: systemPrompt }),
       new Message({ role: Role.USER, content: taskPrompt }),
     ];
+    return this._runSubLoop(contextHistory, readOnlyRegistry, reporter, maxTurns);
+  }
 
+  // 子 Agent 的 ReAct 循环，抽出共用逻辑以便 Thread 和无 Thread 两种模式复用。
+  async _runSubLoop(contextHistory, readOnlyRegistry, reporter, maxTurns) {
     let turnCount = 0;
 
     while (true) {
@@ -302,7 +328,6 @@ export class AgentEngine {
   }
 }
 
-// 未通过 AgentDefinition 传入角色 Prompt 时使用的兼容默认值。
 function defaultSubagentPrompt() {
   return `你是一个专门负责深度探索的 Explorer Subagent。
 你的任务是根据 Coordinator 的指令，在当前工作区内仔细阅读代码，搜集足够的信息。

@@ -34,6 +34,7 @@ export class RunSubagentTool {
         properties: {
           agent_id: { type: 'string', description: '可用角色的精确 ID，如 explorer、reviewer、test_planner' },
           task: { type: 'string', description: '一个清晰、可验证的委派任务，应要求文件、函数和行号等证据' },
+          thread_id: { type: 'string', description: '可选；传入已有线程 ID 可复用该子 Agent 的历史记忆，实现多轮协作' },
         },
         required: ['agent_id', 'task'],
       },
@@ -47,9 +48,12 @@ export class RunSubagentTool {
 
     const definition = this.agentRegistry.get(args?.agent_id);
     const registry = createReadOnlyRegistry(this.workDir, definition.toolNames);
+    const threadId = args?.thread_id || `${definition.id}-${Date.now()}`;
     const report = await this.engine.runSub(task.trim(), registry, this.reporter, {
       systemPrompt: definition.systemPrompt,
       maxTurns: definition.maxTurns,
+      threadId,
+      workDir: this.workDir,
     });
     if (typeof report !== 'string' || !report.trim()) return `[${definition.id} 未返回文字报告]`;
     return report.length > MAX_REPORT_CHARS
