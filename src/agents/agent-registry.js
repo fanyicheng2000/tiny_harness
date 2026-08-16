@@ -1,78 +1,118 @@
 // ===========================================
 // agents/agent-registry.js
 // ===========================================
-// Coordinator 可委派 Agent 的白名单与角色配置。
+// 平台 Agent 配置模型。
 //
-// 这对应 CatX 的 multiagent.agents：主 Agent 只能按 agent_id 委派这里登记的角色，
-// 不能由模型临时指定任意 Prompt、工具或递归层级。
+// 主 Agent 与子 Agent 共用 AgentDefinition（名称、描述、Prompt、Skill、工具），
+// 但只有 RootAgentDefinition 可以声明 multiAgents。这样把“谁可委派谁”变为
+// 平台配置数据，而不是写死 Explorer / Reviewer 等角色。
 // ===========================================
 
+const SAFE_AGENT_ID = /^[A-Za-z0-9._-]+$/;
+
 export class AgentDefinition {
-  constructor({ id, description, systemPrompt, toolNames, maxTurns = 6 }) {
+  constructor({
+    id,
+    name,
+    description = '',
+    systemPrompt = '',
+    skillIds = [],
+    toolNames = [],
+    maxTurns = 6,
+    multiAgents,
+  }) {
+    validateId(id);
+    validateText(name, 'Agent 名称');
+    validateText(systemPrompt, 'Agent 系统提示词');
+    validateStringArray(skillIds, 'skillIds');
+    validateStringArray(toolNames, 'toolNames');
+    if (!Number.isInteger(maxTurns) || maxTurns < 1) {
+      throw new Error('maxTurns 必须是大于 0 的整数');
+    }
+    if (multiAgents !== undefined) {
+      throw new Error(`子 Agent '${id}' 不允许携带 multiAgents；只有主 Agent 可以委派子 Agent`);
+    }
+
     this.id = id;
+    this.name = name;
     this.description = description;
     this.systemPrompt = systemPrompt;
-    this.toolNames = toolNames;
+    this.skillIds = [...skillIds];
+    this.toolNames = [...new Set(toolNames)];
     this.maxTurns = maxTurns;
   }
 }
 
-const READ_ONLY_EVIDENCE_RULES = `
-【共同约束】
-- 你是被 Coordinator 委派的专业子 Agent，只负责调研与报告，不直接修改任何文件。
-- 只能使用系统提供的工具获取证据；不要猜测。
-- 结论必须尽量给出文件路径、函数名和行号；不确定之处明确列入待确认项。
-- 完成后停止调用工具，输出简洁的纯文本报告给 Coordinator。`;
+export class RootAgentDefinition extends AgentDefinition {
+  constructor({ multiAgents = [], ...definition }) {
+    // Root 自己不应触发子 Agent 禁止 multiAgents 的校验。
+    super(definition);
+    if (!Array.isArray(multiAgents)) {
+      throw new Error('主 Agent 的 multiAgents 必须是数组');
+    }
 
-export class AgentRegistry {
-  constructor(definitions = defaultDefinitions()) {
-    this.definitions = new Map();
-    for (const definition of definitions) {
-      if (this.definitions.has(definition.id)) {
-        throw new Error(`AgentDefinition 重复: ${definition.id}`);
+    this.multiAgents = new Map();
+    for (const child of multiAgents) {
+      const agent = child instanceof AgentDefinition ? child : new AgentDefinition(child);
+      if (this.multiAgents.has(agent.id)) {
+        throw new Error(`主 Agent 的 multiAgents 存在重复 ID: ${agent.id}`);
       }
-      this.definitions.set(definition.id, definition);
+      this.multiAgents.set(agent.id, agent);
     }
   }
 
-  get(agentId) {
+  getSubagent(agentId) {
     if (typeof agentId !== 'string' || !agentId.trim()) {
       throw new Error("参数 'agent_id' 必须是非空字符串");
     }
-    const definition = this.definitions.get(agentId.trim());
-    if (!definition) {
-      throw new Error(`Coordinator 无权委派 Agent: ${agentId}`);
+    const agent = this.multiAgents.get(agentId.trim());
+    if (!agent) {
+      throw new Error(`主 Agent 未配置可委派的子 Agent: ${agentId}`);
     }
-    return definition;
+    return agent;
   }
 
-  list() {
-    return [...this.definitions.values()];
+  listSubagents() {
+    return [...this.multiAgents.values()];
   }
 }
 
-export function defaultDefinitions() {
-  return [
-    new AgentDefinition({
-      id: 'explorer',
-      description: '负责跨文件定位调用链、实现位置和可验证代码证据',
-      toolNames: ['read_file'],
-      maxTurns: 8,
-      systemPrompt: `你是 Explorer Agent，专门探索代码库的结构、调用链和实现细节。${READ_ONLY_EVIDENCE_RULES}`,
-    }),
-    new AgentDefinition({
-      id: 'reviewer',
-      description: '负责识别代码变更的逻辑风险、边界条件和潜在回归',
-      toolNames: ['read_file'],
-      maxTurns: 6,
-      systemPrompt: `你是 Reviewer Agent，专门进行只读代码审查。检查正确性、错误处理、边界条件、兼容性和缺失测试，并按风险等级报告。${READ_ONLY_EVIDENCE_RULES}`,
-    }),
-    new AgentDefinition({
-      id: 'test_planner',
-      description: '负责分析测试覆盖并给出应补充的测试场景与断言建议',
-      toolNames: ['read_file'],
-      maxTurns: 6,
-      systemPrompt: `你是 Test Planner Agent，专门从代码行为中设计测试场景。识别正常路径、边界、失败恢复和回归风险，给出可执行的测试建议。${READ_ONLY_EVIDENCE_RULES}`,
-    }),
-  ];
+// AgentRegistry 是平台读取一份主 Agent 配置后的运行时入口。
+// 子 Agent 只能通过 rootAgent.getSubagent() 按直属关系被定位。
+export class AgentRegistry {
+  constructor(rootAgent) {
+    this.rootAgent = rootAgent instanceof RootAgentDefinition
+      ? rootAgent
+      : new RootAgentDefinition(rootAgent);
+  }
+
+  getRootAgent() {
+    return this.rootAgent;
+  }
+
+  getSubagent(agentId) {
+    return this.rootAgent.getSubagent(agentId);
+  }
+
+  listSubagents() {
+    return this.rootAgent.listSubagents();
+  }
+}
+
+function validateId(id) {
+  if (typeof id !== 'string' || !SAFE_AGENT_ID.test(id)) {
+    throw new Error('Agent ID 只能包含字母、数字、点、下划线和连字符');
+  }
+}
+
+function validateText(value, label) {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`${label} 必须是非空字符串`);
+  }
+}
+
+function validateStringArray(values, label) {
+  if (!Array.isArray(values) || values.some((value) => typeof value !== 'string' || !value.trim())) {
+    throw new Error(`${label} 必须是字符串数组`);
+  }
 }
