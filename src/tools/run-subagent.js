@@ -3,6 +3,11 @@
 // ===========================================
 // Coordinator 通过 run_subagent 将任务委派给白名单中的专业子 Agent。
 // 每个角色拥有独立 Prompt、最大 Turn 和最小只读工具集；子 Agent 不能再次委派。
+//
+// 治理边界：
+//   1. agent_id 必须在 AgentRegistry 白名单内
+//   2. 同一 thread_id 不允许并发执行（避免竞态写入同一 JSONL）
+//   3. 报告截断为 MAX_REPORT_CHARS，防止撑爆主上下文
 // ===========================================
 
 import { ToolDefinition } from '../schema/message.js';
@@ -12,6 +17,9 @@ import { ReadFileTool } from './read-file.js';
 
 const MAX_TASK_CHARS = 4000;
 const MAX_REPORT_CHARS = 8000;
+
+// 活跃线程锁：threadId → true，防止同一子 Agent 被并发调用导致 JSONL 竞态写入。
+const activeThreads = new Set();
 
 export class RunSubagentTool {
   constructor({ engine, workDir, reporter = null, agentRegistry = new AgentRegistry() }) {
@@ -49,16 +57,26 @@ export class RunSubagentTool {
     const definition = this.agentRegistry.get(args?.agent_id);
     const registry = createReadOnlyRegistry(this.workDir, definition.toolNames);
     const threadId = args?.thread_id || `${definition.id}-${Date.now()}`;
-    const report = await this.engine.runSub(task.trim(), registry, this.reporter, {
-      systemPrompt: definition.systemPrompt,
-      maxTurns: definition.maxTurns,
-      threadId,
-      workDir: this.workDir,
-    });
-    if (typeof report !== 'string' || !report.trim()) return `[${definition.id} 未返回文字报告]`;
-    return report.length > MAX_REPORT_CHARS
-      ? `${report.slice(0, MAX_REPORT_CHARS)}\n\n[${definition.id} 报告超过 ${MAX_REPORT_CHARS} 字符，已截断]`
-      : report;
+
+    // 并发治理：同一 thread_id 不允许同时执行
+    if (activeThreads.has(threadId)) {
+      throw new Error(`线程 ${threadId} 正在执行中，不允许并发调用同一子 Agent`);
+    }
+    activeThreads.add(threadId);
+    try {
+      const report = await this.engine.runSub(task.trim(), registry, this.reporter, {
+        systemPrompt: definition.systemPrompt,
+        maxTurns: definition.maxTurns,
+        threadId,
+        workDir: this.workDir,
+      });
+      if (typeof report !== 'string' || !report.trim()) return `[${definition.id} 未返回文字报告]`;
+      return report.length > MAX_REPORT_CHARS
+        ? `${report.slice(0, MAX_REPORT_CHARS)}\n\n[${definition.id} 报告超过 ${MAX_REPORT_CHARS} 字符，已截断]`
+        : report;
+    } finally {
+      activeThreads.delete(threadId);
+    }
   }
 }
 

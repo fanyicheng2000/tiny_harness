@@ -273,16 +273,21 @@ export class AgentEngine {
   }
 
   // 子 Agent 的 ReAct 循环，抽出共用逻辑以便 Thread 和无 Thread 两种模式复用。
+  // 用 startSpan 包裹整个子 Agent 执行，使它在 Trace 树中成为一个可观测的子 Span。
   async _runSubLoop(contextHistory, readOnlyRegistry, reporter, maxTurns) {
-    let turnCount = 0;
+    return await startSpan('子智能体执行', async (subSpan) => {
+      subSpan.addAttribute('maxTurns', maxTurns);
+      subSpan.addAttribute('contextLength', contextHistory.length);
+      let turnCount = 0;
 
-    while (true) {
-      turnCount++;
-      if (turnCount > maxTurns) {
-        throw new Error(
-          `子智能体执行超过 ${maxTurns} 轮被强制召回，请 Coordinator 给出更明确的指令`
-        );
-      }
+      while (true) {
+        turnCount++;
+        if (turnCount > maxTurns) {
+          subSpan.addAttribute('recalled', true);
+          throw new Error(
+            `子智能体执行超过 ${maxTurns} 轮被强制召回，请 Coordinator 给出更明确的指令`
+          );
+        }
 
       const availableTools = readOnlyRegistry.getAvailableTools();
       const compactedContext = this.compactor.compact(contextHistory);
@@ -303,17 +308,20 @@ export class AgentEngine {
             reporter.onSubAgentToolCall(call.name, JSON.stringify(call.arguments));
           }
 
-          const result = await readOnlyRegistry.execute(call);
-          let finalOutput = result.output;
-          if (result.isError) {
-            finalOutput = this.recovery.analyzeAndInject(call.name, result.output);
-          }
+          const finalOutput = await startSpan(`子工具:${call.name}`, async () => {
+            const result = await readOnlyRegistry.execute(call);
+            let output = result.output;
+            if (result.isError) {
+              output = this.recovery.analyzeAndInject(call.name, result.output);
+            }
 
-          if (reporter) {
-            let display = finalOutput;
-            if (display.length > 200) display = display.slice(0, 200) + '... (已截断)';
-            reporter.onSubAgentToolResult(call.name, display, result.isError);
-          }
+            if (reporter) {
+              let display = output;
+              if (display.length > 200) display = display.slice(0, 200) + '... (已截断)';
+              reporter.onSubAgentToolResult(call.name, display, result.isError);
+            }
+            return output;
+          });
 
           return new Message({
             role: Role.USER,
@@ -323,8 +331,9 @@ export class AgentEngine {
         })
       );
 
-      contextHistory.push(...observationMsgs);
-    }
+        contextHistory.push(...observationMsgs);
+      }
+    });
   }
 }
 
