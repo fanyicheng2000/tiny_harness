@@ -13,6 +13,7 @@ import { WriteFileTool } from './write-file.js';
 import { EditFileTool } from './edit-file.js';
 import { BashTool } from './bash.js';
 import { PromptComposer } from '../context/composer.js';
+import { randomUUID } from 'node:crypto';
 
 const MAX_TASK_CHARS = 4000;
 const MAX_REPORT_CHARS = 8000;
@@ -62,7 +63,9 @@ export class RunSubagentTool {
     if (task.length > MAX_TASK_CHARS) throw new Error(`子 Agent 任务不能超过 ${MAX_TASK_CHARS} 个字符`);
 
     const agent = this.agentRegistry.getSubagent(args?.agent_id);
-    const threadId = args?.thread_id || `${agent.id}-${Date.now()}`;
+    // agent_id 是角色模板 ID，可被并发实例化多次；thread_id 才是具体实例的上下文 ID。
+    // 未指定 thread_id 时，每次委派都生成 UUID，确保同一角色在同一毫秒内被并发调用也不会共享 Thread。
+    const threadId = args?.thread_id || createInstanceThreadId(agent.id);
     if (activeThreads.has(threadId)) throw new Error(`线程 ${threadId} 正在执行中，不允许并发调用同一子 Agent`);
 
     activeThreads.add(threadId);
@@ -96,6 +99,11 @@ function createChildRegistry(workDir, agent, middleware) {
   }
   if (middleware) registry.use(middleware);
   return registry;
+}
+
+// Thread ID 不承担角色身份；角色身份由 agent_id 表示。这里的 UUID 只标识一次独立子 Agent 实例。
+function createInstanceThreadId(agentId) {
+  return `${agentId}-${randomUUID()}`;
 }
 
 function buildChildSystemPrompt(workDir, agent) {

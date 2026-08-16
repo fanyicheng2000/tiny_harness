@@ -18,7 +18,7 @@ function makeAgentRegistry() {
   });
 }
 
-test('run_subagent rejects concurrent execution on the same thread_id', async (t) => {
+test('run_subagent rejects concurrent execution on the same explicit thread_id', async (t) => {
   const workDir = makeWorkDir();
   t.after(() => fs.rmSync(workDir, { recursive: true, force: true }));
   let resolveFirst;
@@ -26,13 +26,40 @@ test('run_subagent rejects concurrent execution on the same thread_id', async (t
   const engine = { async runSub() { await firstCall; return '完成'; } };
   const tool = new RunSubagentTool({ engine, workDir, agentRegistry: makeAgentRegistry() });
   const firstExec = tool.execute({ agent_id: 'worker', task: '第一次', thread_id: 't1' });
-  await new Promise((r) => setImmediate(r));
+  await new Promise((resolve) => setImmediate(resolve));
   await assert.rejects(tool.execute({ agent_id: 'worker', task: '第二次', thread_id: 't1' }), /正在执行中/);
   resolveFirst();
   await firstExec;
 });
 
-test('run_subagent allows concurrent execution on different thread_ids', async (t) => {
+test('same agent_id creates unique concurrent instances when thread_id is omitted', async (t) => {
+  const workDir = makeWorkDir();
+  t.after(() => fs.rmSync(workDir, { recursive: true, force: true }));
+
+  let releaseWorkers;
+  const workersRunning = new Promise((resolve) => { releaseWorkers = resolve; });
+  const capturedThreadIds = [];
+  const engine = {
+    async runSub(_task, _registry, _reporter, options) {
+      capturedThreadIds.push(options.threadId);
+      await workersRunning;
+      return `实例 ${options.threadId} 完成`;
+    },
+  };
+
+  const tool = new RunSubagentTool({ engine, workDir, agentRegistry: makeAgentRegistry() });
+  const tasks = ['分片-A', '分片-B', '分片-C'].map((task) => tool.execute({ agent_id: 'worker', task }));
+  await new Promise((resolve) => setImmediate(resolve));
+  releaseWorkers();
+  const reports = await Promise.all(tasks);
+
+  assert.equal(capturedThreadIds.length, 3);
+  assert.equal(new Set(capturedThreadIds).size, 3);
+  assert.ok(capturedThreadIds.every((id) => id.startsWith('worker-')));
+  assert.equal(reports.length, 3);
+});
+
+test('run_subagent allows concurrent execution on different explicit thread_ids', async (t) => {
   const workDir = makeWorkDir();
   t.after(() => fs.rmSync(workDir, { recursive: true, force: true }));
   const engine = { async runSub(_task, _reg, _reporter, opts) { return `来自 ${opts.threadId} 的报告`; } };
