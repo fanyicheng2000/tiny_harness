@@ -14,6 +14,7 @@ export function getDefaultExecutionBackend() {
     process.env.TINY_HARNESS_DOCKER_CPUS || '1',
     process.env.TINY_HARNESS_DOCKER_PIDS_LIMIT || '128',
     process.env.TINY_HARNESS_MAX_EXECUTION_OUTPUT_BYTES || '8000',
+    process.env.TINY_HARNESS_DOCKER_POOL_SIZE || '0',
   ].join('|');
   if (cachedBackend && cachedSignature === signature) return cachedBackend;
 
@@ -26,8 +27,14 @@ export function getDefaultExecutionBackend() {
     cpus: process.env.TINY_HARNESS_DOCKER_CPUS || '1',
     pidsLimit: readPositiveInt('TINY_HARNESS_DOCKER_PIDS_LIMIT', 128),
     maxOutputBytes: readPositiveInt('TINY_HARNESS_MAX_EXECUTION_OUTPUT_BYTES', 8000),
+    poolSize: readNonNegativeInt('TINY_HARNESS_DOCKER_POOL_SIZE', 0),
   });
   return cachedBackend;
+}
+
+function readNonNegativeInt(name, fallback) {
+  const value = Number.parseInt(process.env[name] || '', 10);
+  return Number.isInteger(value) && value >= 0 ? value : fallback;
 }
 
 function readPositiveInt(name, fallback) {

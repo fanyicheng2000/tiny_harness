@@ -59,6 +59,35 @@ test('scheduler rejects jobs that wait beyond queue timeout', async () => {
   assert.equal(scheduler.getSnapshot().metrics.queueTimedOut, 1);
 });
 
+test('scheduler prioritizes high-priority pending jobs when capacity becomes available', async () => {
+  const scheduler = new ExecutionScheduler({ maxConcurrent: 1, maxPerSession: 3, maxPerAgent: 3, maxQueueWaitMs: 500 });
+  const order = [];
+  const blocker = scheduler.submit({ run: async () => delay(35) });
+  const low = scheduler.submit({ priority: 0, run: async () => { order.push('low'); } });
+  const high = scheduler.submit({ priority: 10, run: async () => { order.push('high'); } });
+  await Promise.all([blocker.promise, low.promise, high.promise]);
+  assert.deepEqual(order, ['high', 'low']);
+});
+
+test('scheduler admits jobs by declared CPU and memory budget', async () => {
+  const scheduler = new ExecutionScheduler({ maxConcurrent: 3, maxPerSession: 3, maxPerAgent: 3, maxQueueWaitMs: 500, totalCpuMillis: 1500, totalMemoryMb: 1024 });
+  let running = 0;
+  let peak = 0;
+  const run = async () => { running++; peak = Math.max(peak, running); await delay(30); running--; };
+  const one = scheduler.submit({ resources: { cpuMillis: 1000, memoryMb: 512 }, run });
+  const two = scheduler.submit({ resources: { cpuMillis: 1000, memoryMb: 512 }, run });
+  await Promise.all([one.promise, two.promise]);
+  assert.equal(peak, 1);
+  assert.deepEqual(scheduler.getSnapshot().allocated, { cpuMillis: 0, memoryMb: 0 });
+});
+
+test('scheduler immediately rejects a job larger than total capacity', async () => {
+  const scheduler = new ExecutionScheduler({ totalCpuMillis: 1000, totalMemoryMb: 512 });
+  const job = scheduler.submit({ resources: { cpuMillis: 2000, memoryMb: 512 }, run: async () => 'never' });
+  await assert.rejects(job.promise, /超过集群单任务容量/);
+  assert.equal(job.status, ExecutionStatus.RESOURCE_REJECTED);
+});
+
 test('scheduler cancels a running job through AbortSignal', async () => {
   const scheduler = new ExecutionScheduler({ maxConcurrent: 1, maxPerSession: 1, maxPerAgent: 1, maxQueueWaitMs: 500 });
   const job = scheduler.submit({

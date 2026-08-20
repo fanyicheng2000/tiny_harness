@@ -9,6 +9,7 @@
 
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { ContainerPool } from './container-pool.js';
 
 export const DEFAULT_MAX_OUTPUT_BYTES = 8000;
 
@@ -42,6 +43,7 @@ export class DockerBackend {
     pidsLimit = 128,
     maxOutputBytes = DEFAULT_MAX_OUTPUT_BYTES,
     dockerBin = 'docker',
+    poolSize = 0,
   } = {}) {
     validateDockerOptions({ image, timeoutMs, memory, cpus, pidsLimit, maxOutputBytes, dockerBin });
     this.name = 'docker';
@@ -52,9 +54,14 @@ export class DockerBackend {
     this.pidsLimit = pidsLimit;
     this.maxOutputBytes = maxOutputBytes;
     this.dockerBin = dockerBin;
+    if (!Number.isInteger(poolSize) || poolSize < 0) throw new Error('poolSize 必须是非负整数');
+    this.poolSize = poolSize;
+    this.pools = new Map();
   }
 
-  buildArgs({ command, workDir, containerName }) {
+  buildArgs({ command, workDir, containerName, resources = null }) {
+    const memory = resources?.memoryMb ? `${resources.memoryMb}m` : this.memory;
+    const cpus = resources?.cpuMillis ? String(resources.cpuMillis / 1000) : this.cpus;
     return [
       'run', '--rm', '--name', containerName,
       '--network', 'none',
@@ -63,8 +70,8 @@ export class DockerBackend {
       '--cap-drop', 'ALL',
       '--security-opt', 'no-new-privileges:true',
       '--pids-limit', String(this.pidsLimit),
-      '--memory', this.memory,
-      '--cpus', this.cpus,
+      '--memory', memory,
+      '--cpus', cpus,
       '--workdir', '/workspace',
       // Agent 需要读写任务工作区；容器其他文件系统保持只读。
       '--volume', `${workDir}:/workspace:rw`,
@@ -73,11 +80,12 @@ export class DockerBackend {
     ];
   }
 
-  execute({ command, workDir, signal }) {
+  execute({ command, workDir, signal, resources = null }) {
+    if (this.poolSize > 0) return this._executePooled({ command, workDir, signal, resources });
     const containerName = `tiny-harness-${randomUUID()}`;
     return runCommand({
       program: this.dockerBin,
-      args: this.buildArgs({ command, workDir, containerName }),
+      args: this.buildArgs({ command, workDir, containerName, resources }),
       cwd: workDir,
       env: process.env,
       signal,
@@ -90,6 +98,60 @@ export class DockerBackend {
       },
     });
   }
+
+  async _executePooled({ command, workDir, signal, resources }) {
+    const pool = this._getPool(workDir);
+    const container = await pool.acquire();
+    let healthy = true;
+    try {
+      return await runCommand({
+        program: this.dockerBin,
+        args: ['exec', container.id, 'sh', '-c', command],
+        cwd: workDir, env: process.env, signal, timeoutMs: this.timeoutMs, maxOutputBytes: this.maxOutputBytes,
+        stop: async (child) => { child.kill('SIGKILL'); healthy = false; await runBestEffort(this.dockerBin, ['kill', container.id]); },
+      });
+    } catch (error) {
+      healthy = false;
+      throw error;
+    } finally {
+      await pool.release(container, { healthy });
+    }
+  }
+
+  _getPool(workDir) {
+    if (this.pools.has(workDir)) return this.pools.get(workDir);
+    const runtime = new DockerPoolRuntime({ backend: this, workDir });
+    const pool = new ContainerPool({ runtime, image: this.image, size: this.poolSize });
+    this.pools.set(workDir, pool);
+    return pool;
+  }
+
+  getPoolSnapshots() { return [...this.pools.values()].map((pool) => pool.getSnapshot()); }
+}
+
+class DockerPoolRuntime {
+  constructor({ backend, workDir }) { this.backend = backend; this.workDir = workDir; }
+
+  async create() {
+    const args = this.backend.buildArgs({
+      command: 'while true; do sleep 3600; done', workDir: this.workDir, containerName: `tiny-harness-pool-${randomUUID()}`,
+    });
+    // 常规任务 `run --rm` 前台执行；池实例需要后台常驻且由 pool 显式回收。
+    args.splice(args.indexOf('--rm'), 1);
+    args.splice(1, 0, '-d');
+    const id = await runCommand({
+      program: this.backend.dockerBin, args,
+      cwd: this.workDir, env: process.env, timeoutMs: this.backend.timeoutMs, maxOutputBytes: 1024,
+      stop: (child) => child.kill('SIGKILL'),
+    });
+    return { id: id.trim() };
+  }
+
+  async reset(container) {
+    await runCommand({ program: this.backend.dockerBin, args: ['exec', container.id, 'sh', '-c', 'find /workspace -mindepth 1 -maxdepth 1 -name .tiny-harness -prune -o -type f -name "*.tmp" -delete'], cwd: this.workDir, env: process.env, timeoutMs: this.backend.timeoutMs, maxOutputBytes: 1024, stop: (child) => child.kill('SIGKILL') });
+  }
+
+  async destroy(container) { await runBestEffort(this.backend.dockerBin, ['rm', '-f', container.id]); }
 }
 
 export function createExecutionBackend({ kind = 'local', ...options } = {}) {

@@ -159,6 +159,9 @@ tiny-harness (Node.js 版) - 极简 Agent Harness
   TINY_HARNESS_DOCKER_MEMORY       单容器内存上限（默认: 512m）
   TINY_HARNESS_DOCKER_CPUS         单容器 CPU 上限（默认: 1）
   TINY_HARNESS_DOCKER_PIDS_LIMIT   单容器 PID 上限（默认: 128）
+  TINY_HARNESS_DOCKER_POOL_SIZE    预热容器池大小（默认: 0，关闭）
+  TINY_HARNESS_TOTAL_CPU_MILLIS    调度 CPU 总预算（默认: 4000）
+  TINY_HARNESS_TOTAL_MEMORY_MB     调度内存总预算（默认: 4096）
 
 环境变量（在 .env 中配置）:
   TINY_HARNESS_PROVIDER    默认协议

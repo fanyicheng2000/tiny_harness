@@ -30,7 +30,14 @@ export class BashTool {
       description: `在指定工作目录中执行 shell 命令。当前执行环境：${environment}；命令会进入本地执行队列，输出过长会被截断。`,
       inputSchema: {
         type: 'object',
-        properties: { command: { type: 'string', description: '要执行的 shell 命令' } },
+        properties: {
+          command: { type: 'string', description: '要执行的 shell 命令' },
+          priority: { type: 'integer', description: '可选，数值越大越优先；默认 0' },
+          resources: {
+            type: 'object', description: '可选执行资源规格；未传使用默认 1000m CPU / 512MB 内存',
+            properties: { cpuMillis: { type: 'integer' }, memoryMb: { type: 'integer' } },
+          },
+        },
         required: ['command'],
       },
     });
@@ -45,7 +52,9 @@ export class BashTool {
       sessionId: context.sessionId,
       agentId: context.agentId,
       label: `bash:${this.backend.name}`,
-      run: (signal) => this.backend.execute({ command, workDir: this.workDir, signal }),
+      priority: args.priority ?? 0,
+      resources: args.resources,
+      run: (signal) => this.backend.execute({ command, workDir: this.workDir, signal, resources: args.resources }),
     });
     this._recordJob(job);
     return job.promise;
