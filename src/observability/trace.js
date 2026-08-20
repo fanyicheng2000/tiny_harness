@@ -47,6 +47,11 @@ export class Span {
   addChild(child) {
     this.children.push(child);
   }
+
+  addEvent(name, attributes = {}) {
+    if (!this.events) this.events = [];
+    this.events.push({ name, timestamp: Date.now(), attributes });
+  }
 }
 
 // 开启一个新 Span，自动挂到父 Span 下
@@ -97,4 +102,9 @@ export async function exportTraceToFile(rootSpan, workDir, sessionId) {
 // 拿到当前 Span（用于在工具内部 addAttribute）
 export function getCurrentSpan() {
   return traceStorage.getStore();
+}
+
+export function addTraceEvent(name, attributes = {}) {
+  const span = getCurrentSpan();
+  if (span) span.addEvent(name, attributes);
 }

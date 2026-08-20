@@ -77,6 +77,7 @@ export class RunSubagentTool {
         maxTurns: agent.maxTurns,
         threadId,
         workDir: this.workDir,
+        agentId: agent.id,
       });
       if (typeof report !== 'string' || !report.trim()) return `[${agent.name} 未返回文字报告]`;
       return report.length > MAX_REPORT_CHARS

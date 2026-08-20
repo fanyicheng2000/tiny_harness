@@ -7,6 +7,7 @@ import path from 'node:path';
 import { ToolCall } from '../src/schema/message.js';
 import { Registry } from '../src/tools/registry.js';
 import { BashTool } from '../src/tools/bash.js';
+import { ExecutionScheduler } from '../src/execution/scheduler.js';
 
 function setup(t, options = {}) {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiny-harness-bash-test-'));
@@ -40,4 +41,13 @@ test('timeout becomes an error ToolResult', async (t) => {
   const result = await registry.execute(call('sleep 1'));
   assert.equal(result.isError, true);
   assert.match(result.output, /超过 40ms/);
+});
+
+test('bash execution enters the scheduler and exposes execution metrics', async (t) => {
+  const scheduler = new ExecutionScheduler({ maxConcurrent: 1, maxPerSession: 1, maxPerAgent: 1, maxQueueWaitMs: 500 });
+  const registry = setup(t, { scheduler });
+  const result = await registry.execute(call('printf scheduled'));
+  assert.equal(result.isError, false);
+  assert.match(result.output, /scheduled/);
+  assert.equal(scheduler.getSnapshot().metrics.succeeded, 1);
 });

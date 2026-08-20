@@ -29,6 +29,7 @@ import { Message, Role, ToolResult } from '../schema/message.js';
 import { ReminderInjector } from './reminder.js';
 import { startSpan, exportTraceToFile } from '../observability/trace.js';
 import { Thread } from '../context/thread.js';
+import { runWithExecutionContext } from '../execution/context.js';
 
 export class AgentEngine {
   /**
@@ -59,7 +60,10 @@ export class AgentEngine {
     );
 
     // 用 startSpan 包裹整个 Run，结束时自动导出 trace
-    await startSpan('Agent.Run', async (rootSpan) => {
+    await startSpan('Agent.Run', async (rootSpan) => runWithExecutionContext({
+      sessionId: session.id,
+      agentId: 'root',
+    }, async () => {
       // attribute（属性）是附加在 Span 上的一组「键 → 值」元数据，不参与 Agent 的推理或控制流，
       // 只会随 trace 一起导出，便于事后检索、筛选和排障。这里的 rootSpan 本身来自 startSpan()：
       // startSpan 在 src/observability/trace.js 中执行 `new Span('Agent.Run')` 后，将该对象作为回调参数传入。
@@ -89,7 +93,7 @@ export class AgentEngine {
       // 导出整次运行的 trace 到 .tiny-harness/traces/
       const tracePath = await exportTraceToFile(rootSpan, session.workDir, session.id);
       console.log(`📊 [Tracing] 链路回放已保存: ${tracePath}`);
-    });
+    }));
   }
 
   /**
@@ -248,6 +252,7 @@ export class AgentEngine {
     maxTurns = 10,
     threadId = null,
     workDir = null,
+    agentId = 'subagent',
   } = {}) {
     // 子 Agent 独立 Thread：若传入 threadId 和 workDir，则优先从 JSONL 加载已有上下文；
     // 这样 Coordinator 可以用 "继续调研" 等后续指令复用同一子 Agent 的历史记忆。
@@ -263,7 +268,10 @@ export class AgentEngine {
       }
       contextHistory = thread.history;
       const subReporter = reporter || null;
-      const subReport = await this._runSubLoop(contextHistory, readOnlyRegistry, subReporter, maxTurns);
+      const subReport = await runWithExecutionContext({
+        sessionId: threadId,
+        agentId,
+      }, () => this._runSubLoop(contextHistory, readOnlyRegistry, subReporter, maxTurns));
       thread.save();
       return subReport;
     }
@@ -272,7 +280,10 @@ export class AgentEngine {
       new Message({ role: Role.SYSTEM, content: systemPrompt }),
       new Message({ role: Role.USER, content: taskPrompt }),
     ];
-    return this._runSubLoop(contextHistory, readOnlyRegistry, reporter, maxTurns);
+    return runWithExecutionContext({
+      sessionId: threadId || 'subagent-ephemeral',
+      agentId,
+    }, () => this._runSubLoop(contextHistory, readOnlyRegistry, reporter, maxTurns));
   }
 
   // 子 Agent 的 ReAct 循环，抽出共用逻辑以便 Thread 和无 Thread 两种模式复用。
