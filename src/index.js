@@ -153,6 +153,13 @@ tiny-harness (Node.js 版) - 极简 Agent Harness
   --auto-approve, --yolo   跳过工具人工审批（mock 模式默认启用）
   --help, -h               显示此帮助
 
+执行环境变量:
+  TINY_HARNESS_EXECUTION_BACKEND   local（默认）| docker
+  TINY_HARNESS_DOCKER_IMAGE        Docker 镜像（默认: alpine:3.20）
+  TINY_HARNESS_DOCKER_MEMORY       单容器内存上限（默认: 512m）
+  TINY_HARNESS_DOCKER_CPUS         单容器 CPU 上限（默认: 1）
+  TINY_HARNESS_DOCKER_PIDS_LIMIT   单容器 PID 上限（默认: 128）
+
 环境变量（在 .env 中配置）:
   TINY_HARNESS_PROVIDER    默认协议
   OPENAI_API_KEY           OpenAI 兼容协议 API key

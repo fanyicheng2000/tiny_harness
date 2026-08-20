@@ -8,6 +8,7 @@ import { ToolCall } from '../src/schema/message.js';
 import { Registry } from '../src/tools/registry.js';
 import { BashTool } from '../src/tools/bash.js';
 import { ExecutionScheduler } from '../src/execution/scheduler.js';
+import { LocalProcessBackend } from '../src/execution/backend.js';
 
 function setup(t, options = {}) {
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiny-harness-bash-test-'));
@@ -50,4 +51,15 @@ test('bash execution enters the scheduler and exposes execution metrics', async 
   assert.equal(result.isError, false);
   assert.match(result.output, /scheduled/);
   assert.equal(scheduler.getSnapshot().metrics.succeeded, 1);
+});
+
+test('bash delegates command execution to the configured backend', async (t) => {
+  const scheduler = new ExecutionScheduler({ maxConcurrent: 1, maxPerSession: 1, maxPerAgent: 1, maxQueueWaitMs: 500 });
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tiny-harness-bash-backend-test-'));
+  t.after(() => fs.rmSync(workDir, { recursive: true, force: true }));
+  const registry = new Registry();
+  registry.register(new BashTool(workDir, { scheduler, backend: new LocalProcessBackend({ timeoutMs: 500 }) }));
+  const result = await registry.execute(call('printf backend-delegated'));
+  assert.equal(result.isError, false);
+  assert.match(result.output, /backend-delegated/);
 });
