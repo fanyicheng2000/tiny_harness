@@ -2,7 +2,8 @@ import { ExecutionScheduler } from './scheduler.js';
 
 export const defaultExecutionScheduler = new ExecutionScheduler({
   maxConcurrent: readPositiveInt('TINY_HARNESS_MAX_EXECUTIONS', 4),
-  maxPerSession: readPositiveInt('TINY_HARNESS_MAX_EXECUTIONS_PER_SESSION', 2),
+  // Session Sandbox 共享工作区；默认串行，避免同一会话内写操作相互覆盖。
+  maxPerSession: readPositiveInt('TINY_HARNESS_MAX_EXECUTIONS_PER_SESSION', 1),
   maxPerAgent: readPositiveInt('TINY_HARNESS_MAX_EXECUTIONS_PER_AGENT', 2),
   maxQueueWaitMs: readPositiveInt('TINY_HARNESS_MAX_QUEUE_WAIT_MS', 30_000),
   totalCpuMillis: readPositiveInt('TINY_HARNESS_TOTAL_CPU_MILLIS', 4000),

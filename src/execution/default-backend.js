@@ -15,6 +15,9 @@ export function getDefaultExecutionBackend() {
     process.env.TINY_HARNESS_DOCKER_PIDS_LIMIT || '128',
     process.env.TINY_HARNESS_MAX_EXECUTION_OUTPUT_BYTES || '8000',
     process.env.TINY_HARNESS_DOCKER_POOL_SIZE || '0',
+    process.env.TINY_HARNESS_SESSION_SANDBOX || 'true',
+    process.env.TINY_HARNESS_SANDBOX_IDLE_TTL_MS || '1800000',
+    process.env.TINY_HARNESS_DOCKER_PRELOAD_IMAGES || '',
   ].join('|');
   if (cachedBackend && cachedSignature === signature) return cachedBackend;
 
@@ -28,8 +31,26 @@ export function getDefaultExecutionBackend() {
     pidsLimit: readPositiveInt('TINY_HARNESS_DOCKER_PIDS_LIMIT', 128),
     maxOutputBytes: readPositiveInt('TINY_HARNESS_MAX_EXECUTION_OUTPUT_BYTES', 8000),
     poolSize: readNonNegativeInt('TINY_HARNESS_DOCKER_POOL_SIZE', 0),
+    sessionSandbox: readBoolean('TINY_HARNESS_SESSION_SANDBOX', true),
+    sandboxIdleTtlMs: readPositiveInt('TINY_HARNESS_SANDBOX_IDLE_TTL_MS', 30 * 60_000),
   });
+  if (cachedBackend.name === 'docker') {
+    const images = readCsv('TINY_HARNESS_DOCKER_PRELOAD_IMAGES');
+    if (images.length) cachedBackend.preloadImages(images).catch(() => {});
+  }
   return cachedBackend;
+}
+
+function readCsv(name) {
+  return (process.env[name] || '').split(',').map((value) => value.trim()).filter(Boolean);
+}
+
+function readBoolean(name, fallback) {
+  const value = process.env[name];
+  if (value === undefined) return fallback;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return fallback;
 }
 
 function readNonNegativeInt(name, fallback) {

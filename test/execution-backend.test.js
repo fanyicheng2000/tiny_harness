@@ -49,6 +49,12 @@ test('LocalProcessBackend preserves the original shell execution behavior', asyn
   assert.equal(result, 'backend-ok');
 });
 
+test('DockerBackend defaults to session sandbox mode and can keep legacy execution modes', () => {
+  assert.equal(new DockerBackend().sessionSandbox, true);
+  assert.equal(new DockerBackend({ sessionSandbox: false, poolSize: 1 }).sessionSandbox, false);
+  assert.throws(() => new DockerBackend({ sessionSandbox: 'yes' }), /sessionSandbox 必须是布尔值/);
+});
+
 test('DockerBackend rejects invalid resource configuration', () => {
   assert.throws(() => new DockerBackend({ pidsLimit: 0 }), /pidsLimit 必须是正整数/);
   assert.throws(() => new DockerBackend({ image: '' }), /Docker image 必须是非空字符串/);

@@ -54,7 +54,14 @@ export class BashTool {
       label: `bash:${this.backend.name}`,
       priority: args.priority ?? 0,
       resources: args.resources,
-      run: (signal) => this.backend.execute({ command, workDir: this.workDir, signal, resources: args.resources }),
+      run: (signal) => this.backend.execute({
+        command,
+        workDir: this.workDir,
+        sessionId: context.sessionId,
+        agentId: context.agentId,
+        signal,
+        resources: args.resources,
+      }),
     });
     this._recordJob(job);
     return job.promise;
